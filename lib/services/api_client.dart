@@ -889,6 +889,16 @@ class ApiClient {
 
   bool _isToolCompatibilityError(Object error) {
     final text = '$error';
+    // A timeout/abort is a transport-level failure, never evidence that the
+    // endpoint rejects the tools schema — and the chained retry message this
+    // is built from ("...；流式工具尝试：...") can itself contain "工具",
+    // which would otherwise false-positive match the keyword check below.
+    if (RegExp(
+      r'TimeoutException|RequestAbortedException',
+      caseSensitive: false,
+    ).hasMatch(text)) {
+      return false;
+    }
     final compatibleStatus =
         RegExp(r'\((400|404|422)\)').hasMatch(text) ||
         !RegExp(r'\(\d{3}\)').hasMatch(text);
