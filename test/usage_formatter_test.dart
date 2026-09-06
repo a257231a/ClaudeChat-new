@@ -9,7 +9,7 @@ void main() {
       'prompt_tokens_details': <String, Object?>{'cached_tokens': 720},
     });
 
-    expect(summary, '输入：1.0K，输出：80，缓存：720（72%）');
+    expect(summary, '本轮输入：1.0K，本轮输出：80，缓存：720（72%）');
   });
 
   test('uses explicit hit and miss counts as cache rate denominator', () {
@@ -31,7 +31,7 @@ void main() {
       'cachedContentTokenCount': 50,
     });
 
-    expect(summary, '输入：200，缓存：50（25%）');
+    expect(summary, '本轮输入：200，缓存：50（25%）');
   });
 
   test('uses uncached plus read and write tokens for Anthropic-style rate', () {
@@ -48,14 +48,14 @@ void main() {
   test('distinguishes missing cache statistics from a zero cache hit', () {
     expect(
       formatCompletionUsage(<String, Object?>{'prompt_tokens': 100}),
-      '输入：100，缓存：API 未返回统计',
+      '本轮输入：100，缓存：API 未返回统计',
     );
     expect(
       formatCompletionUsage(<String, Object?>{
         'prompt_tokens': 100,
         'prompt_tokens_details': <String, Object?>{'cached_tokens': 0},
       }),
-      '输入：100，缓存：0（0%）',
+      '本轮输入：100，缓存：0（0%）',
     );
   });
 

@@ -76,8 +76,8 @@ String formatCompletionUsage(Map<String, Object?> usage) {
   final roundCount = rawRounds is List ? rawRounds.length : 0;
 
   final values = <String>[];
-  if (input != null) values.add('输入：${shortNumber(input)}');
-  if (output != null) values.add('输出：${shortNumber(output)}');
+  if (input != null) values.add('本轮输入：${shortNumber(input)}');
+  if (output != null) values.add('本轮输出：${shortNumber(output)}');
   if (total != null) values.add('总计：${shortNumber(total)}');
   if (reasoning != null) values.add('思考：${shortNumber(reasoning)}');
   if (cacheHit != null) {

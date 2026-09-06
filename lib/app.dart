@@ -14767,7 +14767,7 @@ class _LegacyToolboxSettingsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tools = ToolService.legacyChatDefinitions
+    final tools = ToolService.orderedDefinitions
         .where((tool) => tool.name != 'web_search' && tool.name != 'fetch_url')
         .toList();
     return Padding(

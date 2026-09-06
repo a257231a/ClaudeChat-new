@@ -3,7 +3,10 @@ import '../domain/entities.dart';
 class ContextBudget {
   const ContextBudget._();
 
-  static int estimateText(String value) {
+  // `structured: true` estimates JSON/code-like text (tool schemas, tool
+  // call arguments and results), which tokenizes denser than prose because
+  // of the punctuation- and key-heavy structure.
+  static int estimateText(String value, {bool structured = false}) {
     var cjk = 0;
     var otherWide = 0;
     for (final rune in value.runes) {
@@ -16,7 +19,8 @@ class ContextBudget {
       }
     }
     final ascii = value.runes.length - cjk - otherWide;
-    return (cjk * .6 + otherWide * .4 + ascii * .25).ceil();
+    final asciiRate = structured ? .32 : .25;
+    return (cjk * .6 + otherWide * .4 + ascii * asciiRate).ceil();
   }
 
   static int estimateMessages(

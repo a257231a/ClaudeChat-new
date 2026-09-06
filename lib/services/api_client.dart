@@ -650,7 +650,7 @@ class ApiClient {
           'status': status,
           'resultBytes': utf8.encode(toolOutput).length,
           'verified': displayResult is Map && displayResult['verified'] == true,
-          if (status != 'success')
+          if (status != 'success' && status != 'pending_approval')
             'error': displayResult is Map
                 ? '${displayResult['error'] ?? '工具执行失败'}'
                 : '工具执行失败',

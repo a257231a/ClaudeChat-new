@@ -1994,7 +1994,18 @@ class AppController extends ChangeNotifier {
       }
       streamingText = result.text;
       final completedParts = _completionParts(result);
-      if (privateMode) {
+      final isEmptyResponse = _isEmptyCompletion(streamingText, completedParts);
+      if (isEmptyResponse) {
+        // The model finished this turn without any text or tool calls (seen
+        // with finishReason "stop" and a completion spent entirely on
+        // reasoning). Don't persist a blank bubble into the conversation —
+        // it would also resend as blank context on every future turn.
+        notice = '模型本轮没有返回内容';
+        _diagnosticSink(
+          requestId: diagnosticRequestId,
+          conversationId: activeConversation?.id,
+        )?.call(<String, Object?>{'event': 'empty_response_skipped'});
+      } else if (privateMode) {
         final privateMessage = ChatMessage(
           id: 'private-${DateTime.now().microsecondsSinceEpoch}',
           conversationId: activeConversation!.id,
@@ -2022,17 +2033,19 @@ class AppController extends ChangeNotifier {
         await _loadMessageParts(activeConversation!.id);
         conversations = await database.conversations();
       }
+      if (!isEmptyResponse) {
+        _diagnosticSink(
+          requestId: diagnosticRequestId,
+          conversationId: activeConversation?.id,
+        )?.call(<String, Object?>{
+          'event': 'chat_response_persisted',
+          'assistantCharacters': result.text.length,
+          'partCount': completedParts.length,
+        });
+      }
       await _notifyReplyIfBackground(result.text);
       generationActivityStatus = '回复已完成';
       generationActivityPreview = result.text;
-      _diagnosticSink(
-        requestId: diagnosticRequestId,
-        conversationId: activeConversation?.id,
-      )?.call(<String, Object?>{
-        'event': 'chat_response_persisted',
-        'assistantCharacters': result.text.length,
-        'partCount': completedParts.length,
-      });
     } on Object catch (error) {
       generationActivityStatus = _generationAbort?.isCompleted == true
           ? (_generationTimedOut ? '回复等待超时' : '回复已停止')
@@ -3393,6 +3406,7 @@ class AppController extends ChangeNotifier {
               budget: budget,
               reservedTokens:
                   ContextBudget.estimateText(systemPrompt) +
+                  _workspaceToolSchemaTokens(requestedMode) +
                   (capturedMaxTokens ?? 4096).clamp(256, budget ~/ 2),
               extraTokens: _workspaceHistoricalToolExtraTokens,
             );
@@ -3495,13 +3509,22 @@ class AppController extends ChangeNotifier {
         },
         onDiagnostic: diagnosticSink,
       );
-      await content.appendWorkspaceMessage(
-        workspaceId: workspace.id,
-        conversationId: conversation.id,
-        role: 'assistant',
-        content: result.text,
-        parts: _completionParts(result),
-      );
+      final workspaceCompletedParts = _completionParts(result);
+      if (_isEmptyCompletion(result.text, workspaceCompletedParts)) {
+        notice = '模型本轮没有返回内容';
+        diagnosticSink?.call(<String, Object?>{
+          'event': 'empty_response_skipped',
+          'requestKind': 'workspace',
+        });
+      } else {
+        await content.appendWorkspaceMessage(
+          workspaceId: workspace.id,
+          conversationId: conversation.id,
+          role: 'assistant',
+          content: result.text,
+          parts: workspaceCompletedParts,
+        );
+      }
       final refreshedFiles = await content.workspaceFiles(workspace.id);
       workspaceFileCounts[workspace.id] = refreshedFiles.length;
       if (activeWorkspace?.id == workspace.id &&
@@ -4105,7 +4128,16 @@ class AppController extends ChangeNotifier {
         );
       }
       final completedParts = _completionParts(result);
-      if (privateMode) {
+      if (_isEmptyCompletion(result.text, completedParts)) {
+        notice = '模型本轮没有返回内容';
+        _diagnosticSink(
+          requestId: diagnosticRequestId,
+          conversationId: activeConversation?.id,
+        )?.call(<String, Object?>{
+          'event': 'empty_response_skipped',
+          'requestKind': 'edited_resend',
+        });
+      } else if (privateMode) {
         final privateMessage = ChatMessage(
           id: 'private-${DateTime.now().microsecondsSinceEpoch}',
           conversationId: activeConversation!.id,
@@ -4193,16 +4225,34 @@ class AppController extends ChangeNotifier {
         ),
       ];
 
-  Map<String, Object?> _completionMetadata(ChatCompletionResult result) =>
-      <String, Object?>{
-        'reasoning': result.parts
-            .where((part) => part.type == 'thought')
-            .map((part) => part.content ?? '')
-            .where((value) => value.isNotEmpty)
-            .join('\n\n'),
-        'usage': result.usage,
-        'elapsedMs': result.elapsed.inMilliseconds,
-      };
+  bool _isEmptyCompletion(String text, List<MessagePartInput> parts) =>
+      text.trim().isEmpty && !parts.any((part) => part.type == 'tool');
+
+  Map<String, Object?> _completionMetadata(ChatCompletionResult result) {
+    // Anchor the next estimate to what this turn's *last* round actually
+    // sent (not the summed-across-rounds usage._rounds total, which would
+    // double-count a multi-round tool-calling turn's growing context).
+    final rounds = result.usage['_rounds'];
+    final lastRound = rounds is List && rounds.isNotEmpty ? rounds.last : null;
+    final lastPromptTokens = lastRound is Map
+        ? lastRound['prompt_tokens']
+        : null;
+    return <String, Object?>{
+      'reasoning': result.parts
+          .where((part) => part.type == 'thought')
+          .map((part) => part.content ?? '')
+          .where((value) => value.isNotEmpty)
+          .join('\n\n'),
+      'usage': result.usage,
+      'elapsedMs': result.elapsed.inMilliseconds,
+      if (lastPromptTokens is num)
+        'contextInputTokens': lastPromptTokens.round(),
+      if (lastPromptTokens is num) 'contextInputTokensModel': activeModel,
+      if (lastPromptTokens is num)
+        'contextInputTokensSummarized':
+            activeConversation?.summarizedMessageCount,
+    };
+  }
 
   List<MessagePart> _ephemeralParts(
     String messageId,
@@ -4338,55 +4388,58 @@ class AppController extends ChangeNotifier {
       0,
       messages.length,
     );
-    final visible = messages.skip(summarizedCount).toList();
-    final reserved =
+    var summaryFoldCount = conversation.summaryFoldCount;
+    final toolSchemaTokens = _toolSchemaTokens;
+    int reservedTokens() =>
         ContextBudget.estimateText(systemPrompt) +
         ContextBudget.estimateText(summary) +
+        toolSchemaTokens +
         (_modelInt('maxTokens', 4096) ?? 4096).clamp(256, budget ~/ 2);
-    final estimate =
+    int estimateFor(int fromIndex) =>
         ContextBudget.estimateMessages(
-          visible,
+          messages.skip(fromIndex),
           extraTokens: _historicalToolExtraTokens,
         ) +
-        reserved;
-    if (estimate >= budget * .78) {
+        reservedTokens();
+    // A large first-time backlog only earns a ~28%-of-budget chunk per
+    // summarization pass (see ContextBudget.summaryEndIndex), so loop passes
+    // here instead of leaving the caller to catch up over several separate
+    // turns (each of which would otherwise cost its own summarizer call and
+    // break the prompt cache for that turn).
+    while (estimateFor(summarizedCount) >= budget * .78) {
       final end = ContextBudget.summaryEndIndex(
         messages,
         summarizedCount: summarizedCount,
         budget: budget,
         extraTokens: _historicalToolExtraTokens,
       );
-      if (end > summarizedCount) {
-        final chunk = messages.sublist(summarizedCount, end);
-        final generated = await _summarizeHistory(
-          profile: profile,
-          previousSummary: summary,
-          chunk: chunk,
-        );
-        if (generated.isNotEmpty) {
-          summary = generated;
-          summarizedCount = end;
-          await database.updateConversationSummary(
-            conversation.id,
-            summary: summary,
-            summarizedMessageCount: summarizedCount,
-            summaryFoldCount: conversation.summaryFoldCount + 1,
-          );
-          activeConversation = (await database.conversations())
-              .where((item) => item.id == conversation.id)
-              .firstOrNull;
-        }
-      }
+      if (end <= summarizedCount) break;
+      final chunk = messages.sublist(summarizedCount, end);
+      final generated = await _summarizeHistory(
+        profile: profile,
+        previousSummary: summary,
+        chunk: chunk,
+      );
+      if (generated.isEmpty) break;
+      summary = generated;
+      summarizedCount = end;
+      summaryFoldCount++;
+      await database.updateConversationSummary(
+        conversation.id,
+        summary: summary,
+        summarizedMessageCount: summarizedCount,
+        summaryFoldCount: summaryFoldCount,
+      );
+      activeConversation = (await database.conversations())
+          .where((item) => item.id == conversation.id)
+          .firstOrNull;
     }
 
     final remaining = messages.skip(summarizedCount).toList();
     final trim = ContextBudget.trim(
       remaining,
       budget: budget,
-      reservedTokens:
-          ContextBudget.estimateText(systemPrompt) +
-          ContextBudget.estimateText(summary) +
-          (_modelInt('maxTokens', 4096) ?? 4096).clamp(256, budget ~/ 2),
+      reservedTokens: reservedTokens(),
       extraTokens: _historicalToolExtraTokens,
     );
     if (summary.isNotEmpty) {
@@ -4397,9 +4450,9 @@ class AppController extends ChangeNotifier {
     }
     if (trim.dropped > 0) {
       systemPrompt =
-          '$systemPrompt\n\n由于上下文预算限制，本次又省略了 ${trim.dropped} 条较早消息。保留的最近消息优先。';
+          '$systemPrompt\n\n由于上下文预算限制，部分较早消息未包含在本次上下文中。保留的最近消息优先。';
       systemPromptWithoutTools =
-          '$systemPromptWithoutTools\n\n由于上下文预算限制，本次又省略了 ${trim.dropped} 条较早消息。保留的最近消息优先。';
+          '$systemPromptWithoutTools\n\n由于上下文预算限制，部分较早消息未包含在本次上下文中。保留的最近消息优先。';
     }
     return _PreparedContext(
       messages: appendApproval(trim.messages),
@@ -4431,6 +4484,25 @@ class AppController extends ChangeNotifier {
     return _toolPartsExtraTokens(message, workspaceMessagePartsByMessage);
   }
 
+  // The `tools` schema sent with every request (function names, descriptions,
+  // JSON parameter schemas) is real request payload the estimator used to
+  // ignore entirely — with 17-20+ tools enabled that is several thousand
+  // tokens of context the budget check couldn't see.
+  int get _toolSchemaTokens {
+    if (settings['toolboxEnabled'] == false) return 0;
+    return ContextBudget.estimateText(
+      jsonEncode(enabledToolDefinitions.map((item) => item.toApi()).toList()),
+      structured: true,
+    );
+  }
+
+  int _workspaceToolSchemaTokens(String mode) => ContextBudget.estimateText(
+    jsonEncode(
+      _workspaceToolsForMode(mode).map((item) => item.toApi()).toList(),
+    ),
+    structured: true,
+  );
+
   int _toolPartsExtraTokens(
     ChatMessage message,
     Map<String, List<MessagePart>> source,
@@ -4441,9 +4513,10 @@ class AppController extends ChangeNotifier {
       final arguments = part.metadata['arguments'];
       total +=
           16 +
-          ContextBudget.estimateText(part.content ?? '') +
+          ContextBudget.estimateText(part.content ?? '', structured: true) +
           ContextBudget.estimateText(
             arguments is String ? arguments : jsonEncode(arguments ?? const {}),
+            structured: true,
           );
     }
     return total;
@@ -4530,13 +4603,28 @@ class AppController extends ChangeNotifier {
   );
 
   int get estimatedInputTokens {
-    for (final message in messages.reversed) {
-      final persisted = _messageMetadataInt(message, 'contextInputTokens');
-      if (persisted != null) return persisted;
-    }
     final conversation = activeConversation;
     final start =
         conversation?.summarizedMessageCount.clamp(0, messages.length) ?? 0;
+    // A persisted real-usage anchor is only trustworthy if it's still in the
+    // unsummarized tail (older ones were folded into the summary text and no
+    // longer reflect what gets sent), came from the model currently active
+    // (switching models changes both tokenizer and prompt shape), and was
+    // recorded under the same summarization state as now — a fresh
+    // summarization pass shrinks the prompt even though the anchor message
+    // itself (being recent) usually survives the fold untouched.
+    final currentSummarized = conversation?.summarizedMessageCount ?? 0;
+    for (final message in messages.skip(start).toList().reversed) {
+      final metadata = _messageMetadata(message);
+      final anchor = metadata?['contextInputTokens'];
+      final anchorModel = metadata?['contextInputTokensModel'];
+      final anchorSummarized = metadata?['contextInputTokensSummarized'];
+      if (anchor is num &&
+          anchorModel == activeModel &&
+          anchorSummarized == currentSummarized) {
+        return anchor.round();
+      }
+    }
     return ContextBudget.estimateMessages(messages.skip(start)) +
         messages
             .skip(start)
@@ -4544,6 +4632,7 @@ class AppController extends ChangeNotifier {
               0,
               (total, message) => total + _historicalToolExtraTokens(message),
             ) +
+        _toolSchemaTokens +
         ContextBudget.estimateText(conversation?.accumulatedSummary ?? '') +
         ContextBudget.estimateText(_chatSystemPrompt());
   }
@@ -4556,14 +4645,18 @@ class AppController extends ChangeNotifier {
             (persisted ?? ContextBudget.estimateText(message.content));
       });
 
-  int? _messageMetadataInt(ChatMessage message, String key) {
+  Map<String, Object?>? _messageMetadata(ChatMessage message) {
     try {
       final metadata = jsonDecode(message.metadataJson);
-      final value = metadata is Map ? metadata[key] : null;
-      return value is num ? value.round() : null;
+      return metadata is Map ? metadata.cast<String, Object?>() : null;
     } on FormatException {
       return null;
     }
+  }
+
+  int? _messageMetadataInt(ChatMessage message, String key) {
+    final value = _messageMetadata(message)?[key];
+    return value is num ? value.round() : null;
   }
 
   void _handleNotificationPayload(String payload) {
@@ -4607,6 +4700,16 @@ class AppController extends ChangeNotifier {
         'ok': false,
         'tool': request.name,
         'error': '私密对话只允许使用 get_time',
+      });
+    }
+    // A provider can return a tool call whose name was never advertised in
+    // this request's tool list (stale context, a guessed name, ...). The
+    // user's per-tool toggle must still be honored even then.
+    if (!privateMode && !ToolPreferences.isEnabled(settings, request.name)) {
+      return jsonEncode(<String, Object?>{
+        'ok': false,
+        'tool': request.name,
+        'error': '该工具已在设置中关闭，本轮未执行',
       });
     }
     if (request.name == 'generate_voice') {
