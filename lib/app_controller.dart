@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
 import 'core/app_paths.dart';
@@ -18,6 +19,7 @@ import 'services/content_repository.dart';
 import 'services/context_budget.dart';
 import 'services/diagnostics_service.dart';
 import 'services/legacy_import_service.dart';
+import 'services/our_home/our_home_simulation_service.dart';
 import 'services/platform_service.dart';
 import 'services/portable_data_service.dart';
 import 'services/secure_vault.dart';
@@ -29,7 +31,16 @@ import 'services/voice_service.dart';
 import 'services/workspace_export_service.dart';
 import 'services/workspace_project_service.dart';
 
-enum AppSection { chat, memories, diary, files, voices, workspaces, settings }
+enum AppSection {
+  chat,
+  memories,
+  diary,
+  files,
+  voices,
+  workspaces,
+  ourHome,
+  settings,
+}
 
 enum AppNoticeType { info, notice, danger }
 
@@ -243,7 +254,7 @@ class AppController extends ChangeNotifier {
     required this.voice,
     required this.diagnostics,
     this.portableData,
-  });
+  }) : ourHomeSimulation = OurHomeSimulationService();
 
   final AppPaths paths;
   final AppDatabase database;
@@ -259,6 +270,10 @@ class AppController extends ChangeNotifier {
   final VoiceService voice;
   final DiagnosticsService diagnostics;
   final PortableDataService? portableData;
+  /// Keeps "我们的家" advancing (autonomous decisions, work/travel
+  /// settlement) for the whole app session — not just while that section is
+  /// the visible one. See [OurHomeSimulationService].
+  final OurHomeSimulationService ourHomeSimulation;
 
   Map<String, Object?> settings = <String, Object?>{};
   List<ApiProfile> profiles = <ApiProfile>[];
@@ -559,6 +574,7 @@ class AppController extends ChangeNotifier {
     await controller.tools.cleanStaleTrivialMemories();
     await controller.legacy.repairLegacyToolParts();
     await controller.reload();
+    unawaited(controller.ourHomeSimulation.start());
     final initialPayload = platform.initialNotificationPayload;
     if (initialPayload != null && initialPayload.isNotEmpty) {
       controller._handleNotificationPayload(initialPayload);
@@ -1214,6 +1230,32 @@ class AppController extends ChangeNotifier {
 
   String get workspaceMode => '${activeWorkspace?.settings['mode'] ?? 'agent'}';
 
+  /// "我们的家"'s own model choice — a single global setting (not per-item
+  /// like a workspace's), same fallback chain as [workspaceModelSlot]: an
+  /// explicitly-picked slot, else whatever the main chat is using.
+  Map<String, Object?>? get ourHomeModelSlot {
+    final id = settings['ourHomeModelSlotId'];
+    if (id == null) return activeModelSlot;
+    return modelSlots.where((slot) => slot['id'] == id).firstOrNull ??
+        activeModelSlot;
+  }
+
+  ApiProfile? get ourHomeProfile {
+    final slot = ourHomeModelSlot;
+    final configuredProfileId = slot?['apiProfileId'] as String?;
+    final apiName = slot?['apiName'] as String?;
+    return profiles
+            .where((value) => value.id == configuredProfileId)
+            .firstOrNull ??
+        profiles
+            .where((value) => apiName != null && value.models.contains(apiName))
+            .firstOrNull ??
+        activeProfile;
+  }
+
+  String get ourHomeModel =>
+      (ourHomeModelSlot?['apiName'] as String?) ?? activeModel;
+
   WorkspaceProjectInspection get workspaceProjectInspection =>
       WorkspaceProjectService.inspect(<String, String>{
         for (final file in workspaceFiles)
@@ -1387,6 +1429,11 @@ class AppController extends ChangeNotifier {
       .orderedDefinitions
       .where(
         (item) =>
+            // our_home_pet_action is architecturally restricted to the "我们
+            // 的家" page's own "@ta"-scoped mini-agent, never the main chat —
+            // this isn't a user preference to toggle, so it's excluded here
+            // unconditionally rather than via ToolPreferences.
+            item.name != 'our_home_pet_action' &&
             ToolPreferences.isEnabled(settings, item.name) &&
             (!privateMode || item.name == 'get_time'),
       )
@@ -1401,6 +1448,14 @@ class AppController extends ChangeNotifier {
     'toolOverrides',
     ToolPreferences.withEnabled(settings['toolOverrides'], name, enabled),
   );
+
+  /// Rebuilds the whole app shell (it's wrapped in `AnimatedBuilder(
+  /// animation: controller, ...)` at the root) without a full [reload] —
+  /// for a change that lives outside this controller's own tracked state
+  /// (e.g. `OurHomeSimulationService.state`'s fields, read directly by the
+  /// shared top bar/sidebar) but still needs those shared widgets to
+  /// refresh once it changes.
+  void refreshShell() => notifyListeners();
 
   Future<void> reload() async {
     settings = await settingsService.load();
@@ -1786,6 +1841,24 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Prepends a "message sent at HH:MM:SS" annotation to the API-bound
+  /// content of the latest user turn — replaces the on-demand `get_time`
+  /// tool with an always-on, no-tool-call time signal, gated on the same
+  /// "常态化时间戳" toggle that controls the reply capsule's display. Off by
+  /// default means "off" here too: the model falls back to calling
+  /// `get_time` itself when it actually needs the time.
+  List<Map<String, Object?>> _withReplyTimestamp(
+    List<Map<String, Object?>> content,
+    DateTime sentAt,
+  ) {
+    if (settings['alwaysShowReplyTimestamp'] == false) return content;
+    final stamp = DateFormat('yyyy.MM.dd - HH:mm:ss').format(sentAt.toLocal());
+    return <Map<String, Object?>>[
+      <String, Object?>{'type': 'text', 'text': '[消息发送时间：$stamp]'},
+      ...content,
+    ];
+  }
+
   Future<void> send(String text) async {
     if (busy || (text.trim().isEmpty && pendingAttachments.isEmpty)) return;
     busy = true;
@@ -1818,13 +1891,30 @@ class AppController extends ChangeNotifier {
           );
         }
       }
+      // Captured once, right as the user's turn begins — a stand-in for
+      // "when the user sent this / when the model started receiving it"
+      // (the gap between those two is negligible). Persisted regardless of
+      // the "常态化时间戳" toggle so the field survives being turned back on
+      // later; only the *display* and *sent-to-model* behavior are gated on
+      // the toggle (see the 'replying' capsule and the lastUserContent
+      // injection below).
+      final sentAt = DateTime.now().toUtc();
+      final userMetadataDecoded = jsonDecode(
+        attachments.metadata(selectedAttachments),
+      );
+      final userMetadataJson = jsonEncode(<String, Object?>{
+        if (userMetadataDecoded is Map)
+          ...userMetadataDecoded.cast<String, Object?>(),
+        'sentAt': sentAt.toIso8601String(),
+      });
       final userMessage = ChatMessage(
         id: 'private-${DateTime.now().microsecondsSinceEpoch}',
         conversationId: activeConversation!.id,
         sequence: messages.length + 1,
         role: 'user',
         content: text.trim(),
-        createdAt: DateTime.now().toUtc(),
+        createdAt: sentAt,
+        metadataJson: userMetadataJson,
       );
       if (privateMode) {
         messages = <ChatMessage>[...messages, userMessage];
@@ -1834,7 +1924,7 @@ class AppController extends ChangeNotifier {
           conversationId: activeConversation!.id,
           role: 'user',
           content: text.trim(),
-          metadataJson: attachments.metadata(selectedAttachments),
+          metadataJson: userMetadataJson,
           parts: <MessagePartInput>[
             const MessagePartInput(
               type: 'status',
@@ -1905,9 +1995,9 @@ class AppController extends ChangeNotifier {
           messages: requestContext.messages,
           messagePartsByMessage: messagePartsByMessage,
           lastUserContent: <String, Object?>{
-            'content': await attachments.apiContent(
-              text.trim(),
-              selectedAttachments,
+            'content': _withReplyTimestamp(
+              await attachments.apiContent(text.trim(), selectedAttachments),
+              sentAt,
             ),
           },
           systemPrompt: requestContext.systemPrompt,
@@ -2127,6 +2217,9 @@ class AppController extends ChangeNotifier {
       'restore_workspace_file_version' => '恢复工作区文件版本',
       'create_workspace_file' => '创建工作区文件',
       'edit_workspace_file' => '编辑工作区文件',
+      'read_our_home_status' => '查看小家状态',
+      'search_our_home_log' => '搜索小家历史日志',
+      'our_home_pet_action' => '指挥小螃蟹',
       _ => '执行工具',
     };
     if (completed) {
@@ -4908,6 +5001,9 @@ class AppController extends ChangeNotifier {
       'schedule_notification' ||
       'create_system_reminder' => decoded['created'] == true,
       'update_home_widget' => decoded['updated'] == true,
+      'read_our_home_status' => hasText('status') && decoded.containsKey('coins'),
+      'search_our_home_log' => decoded['entries'] is List,
+      'our_home_pet_action' => decoded.containsKey('ok') && hasText('summary'),
       _ => false,
     };
     return valid ? null : '工具返回结果未通过完成性校验，操作不能判定为成功';
@@ -5137,6 +5233,11 @@ class AppController extends ChangeNotifier {
       'read_file' => (AppNoticeType.info, '读取了文件', AppSection.files),
       'edit_file' => (AppNoticeType.info, '编辑了文件', AppSection.files),
       'delete_file' => (AppNoticeType.info, '删除了文件', AppSection.files),
+      'our_home_pet_action' => (
+        AppNoticeType.info,
+        '让小螃蟹去做事了',
+        AppSection.ourHome,
+      ),
       _ => null,
     };
     if (mapping == null) return;

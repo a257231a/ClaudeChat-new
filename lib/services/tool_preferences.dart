@@ -8,6 +8,12 @@ class ToolPreferences {
     if (name == 'fetch_url' && settings['fetchUrlEnabled'] != true) {
       return false;
     }
+    // Defaults to off now that "常态化时间戳" gives passive time-awareness
+    // without a tool call — opt back in via the toolbox if the AI should
+    // still be able to actively read the clock.
+    if (name == 'get_time' && settings['getTimeEnabled'] != true) {
+      return false;
+    }
     final rawOverrides = settings['toolOverrides'];
     if (rawOverrides is! Map) return true;
     final rawTool = rawOverrides[name];

@@ -122,6 +122,17 @@ class ChatMessage {
   final int revision;
   final String originDeviceId;
 
+  Map<String, Object?> get metadata {
+    try {
+      final value = jsonDecode(metadataJson);
+      return value is Map
+          ? value.cast<String, Object?>()
+          : const <String, Object?>{};
+    } on Object {
+      return const <String, Object?>{};
+    }
+  }
+
   Map<String, Object?> toMap() => <String, Object?>{
     'id': id,
     'conversation_id': conversationId,

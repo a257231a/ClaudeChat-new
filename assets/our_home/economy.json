@@ -1,0 +1,2807 @@
+{
+  "shopItems": [
+    {
+      "cat": "日用品",
+      "name": "洗衣液",
+      "price": 35,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "纸巾",
+      "price": 12,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "牙膏",
+      "price": 8,
+      "mood": 0,
+      "need": "bath"
+    },
+    {
+      "cat": "日用品",
+      "name": "软毛牙刷",
+      "price": 10,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "香皂",
+      "price": 8,
+      "mood": 1,
+      "need": "bath"
+    },
+    {
+      "cat": "日用品",
+      "name": "洗手液",
+      "price": 16,
+      "mood": 1,
+      "need": "bath"
+    },
+    {
+      "cat": "日用品",
+      "name": "洗发水",
+      "price": 28,
+      "mood": 1,
+      "need": "bath"
+    },
+    {
+      "cat": "日用品",
+      "name": "沐浴露",
+      "price": 26,
+      "mood": 2,
+      "need": "bath"
+    },
+    {
+      "cat": "日用品",
+      "name": "护手霜",
+      "price": 18,
+      "mood": 2,
+      "need": "bath"
+    },
+    {
+      "cat": "日用品",
+      "name": "润唇膏",
+      "price": 15,
+      "mood": 2
+    },
+    {
+      "cat": "日用品",
+      "name": "小毛巾",
+      "price": 15,
+      "mood": 1,
+      "need": "bath"
+    },
+    {
+      "cat": "日用品",
+      "name": "柔软浴巾",
+      "price": 36,
+      "mood": 3,
+      "need": "bath"
+    },
+    {
+      "cat": "日用品",
+      "name": "棉柔洗脸巾",
+      "price": 18,
+      "mood": 1,
+      "need": "bath"
+    },
+    {
+      "cat": "日用品",
+      "name": "垃圾袋",
+      "price": 6,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "厨房海绵",
+      "price": 5,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "洗洁精",
+      "price": 12,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "清洁湿巾",
+      "price": 10,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "地板清洁剂",
+      "price": 22,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "小扫帚",
+      "price": 18,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "簸箕",
+      "price": 12,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "衣架",
+      "price": 10,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "晾衣夹",
+      "price": 6,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "收纳盒",
+      "price": 25,
+      "mood": 2
+    },
+    {
+      "cat": "日用品",
+      "name": "透明储物罐",
+      "price": 16,
+      "mood": 1
+    },
+    {
+      "cat": "日用品",
+      "name": "保鲜袋",
+      "price": 8,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "保鲜膜",
+      "price": 10,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "便当盒",
+      "price": 28,
+      "mood": 3
+    },
+    {
+      "cat": "日用品",
+      "name": "小水杯",
+      "price": 20,
+      "mood": 3
+    },
+    {
+      "cat": "日用品",
+      "name": "保温杯",
+      "price": 48,
+      "mood": 4
+    },
+    {
+      "cat": "日用品",
+      "name": "防滑拖鞋",
+      "price": 22,
+      "mood": 2
+    },
+    {
+      "cat": "日用品",
+      "name": "折叠雨伞",
+      "price": 35,
+      "mood": 2
+    },
+    {
+      "cat": "日用品",
+      "name": "晴雨两用伞",
+      "price": 58,
+      "mood": 3
+    },
+    {
+      "cat": "日用品",
+      "name": "热水袋",
+      "price": 25,
+      "mood": 4
+    },
+    {
+      "cat": "日用品",
+      "name": "驱蚊贴",
+      "price": 8,
+      "mood": 1
+    },
+    {
+      "cat": "日用品",
+      "name": "创可贴",
+      "price": 6,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "棉签",
+      "price": 5,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "备用纽扣",
+      "price": 4,
+      "mood": 0
+    },
+    {
+      "cat": "日用品",
+      "name": "迷你针线盒",
+      "price": 12,
+      "mood": 1
+    },
+    {
+      "cat": "日用品",
+      "name": "香味太浓的清洁剂",
+      "price": 18,
+      "mood": -2
+    },
+    {
+      "cat": "日用品",
+      "name": "买错尺寸的垃圾袋",
+      "price": 7,
+      "mood": -1
+    },
+    {
+      "cat": "吃的",
+      "name": "奶茶",
+      "price": 18,
+      "mood": 6,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "蛋糕",
+      "price": 25,
+      "mood": 8,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "水果",
+      "price": 15,
+      "mood": 4,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "矿泉水",
+      "price": 3,
+      "mood": 0,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "温牛奶",
+      "price": 8,
+      "mood": 2,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "蜂蜜水",
+      "price": 8,
+      "mood": 3,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "鲜榨橙汁",
+      "price": 15,
+      "mood": 4,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "柠檬气泡水",
+      "price": 12,
+      "mood": 4,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "草莓酸奶",
+      "price": 12,
+      "mood": 4,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "热可可",
+      "price": 16,
+      "mood": 5,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "桂花乌龙茶",
+      "price": 10,
+      "mood": 3,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "桃子冰茶",
+      "price": 12,
+      "mood": 4,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "椰子水",
+      "price": 14,
+      "mood": 4,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "红豆豆浆",
+      "price": 8,
+      "mood": 3,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "焦糖布丁",
+      "price": 12,
+      "mood": 5,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "双皮奶",
+      "price": 14,
+      "mood": 5,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "芒果西米露",
+      "price": 16,
+      "mood": 5,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "冰淇淋",
+      "price": 10,
+      "mood": 5,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "草莓圣代",
+      "price": 22,
+      "mood": 7,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "一小袋软糖",
+      "price": 6,
+      "mood": 3,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "水果硬糖",
+      "price": 5,
+      "mood": 2,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "巧克力",
+      "price": 12,
+      "mood": 5,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "曲奇饼干",
+      "price": 15,
+      "mood": 4,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "海盐苏打饼干",
+      "price": 8,
+      "mood": 2,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "小熊夹心饼干",
+      "price": 12,
+      "mood": 4,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "坚果小包",
+      "price": 16,
+      "mood": 3,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "烤海苔",
+      "price": 8,
+      "mood": 3,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "薯片",
+      "price": 10,
+      "mood": 4,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "焦糖爆米花",
+      "price": 12,
+      "mood": 5,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "棉花糖",
+      "price": 8,
+      "mood": 4,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "糖葫芦",
+      "price": 10,
+      "mood": 5,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "烤红薯",
+      "price": 8,
+      "mood": 4,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "糖炒栗子",
+      "price": 15,
+      "mood": 5,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "奶油面包",
+      "price": 8,
+      "mood": 3,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "可颂",
+      "price": 12,
+      "mood": 4,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "肉松面包",
+      "price": 10,
+      "mood": 4,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "草莓甜甜圈",
+      "price": 12,
+      "mood": 5,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "蛋挞",
+      "price": 8,
+      "mood": 4,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "芝士贝果",
+      "price": 16,
+      "mood": 4,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "饭团",
+      "price": 10,
+      "mood": 4,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "鸡蛋三明治",
+      "price": 14,
+      "mood": 4,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "小笼包",
+      "price": 12,
+      "mood": 4,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "鲜肉馄饨",
+      "price": 16,
+      "mood": 5,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "鸡汤面",
+      "price": 18,
+      "mood": 5,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "番茄鸡蛋面",
+      "price": 16,
+      "mood": 5,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "牛肉面",
+      "price": 25,
+      "mood": 6,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "咖喱饭",
+      "price": 25,
+      "mood": 6,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "蛋包饭",
+      "price": 22,
+      "mood": 6,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "鸡肉盖饭",
+      "price": 24,
+      "mood": 6,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "照烧鸡腿饭",
+      "price": 28,
+      "mood": 7,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "牛肉汉堡",
+      "price": 22,
+      "mood": 6,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "炸鸡小份",
+      "price": 25,
+      "mood": 7,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "烤鸡翅",
+      "price": 18,
+      "mood": 5,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "芝士披萨小份",
+      "price": 32,
+      "mood": 7,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "什锦炒饭",
+      "price": 18,
+      "mood": 5,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "蔬菜沙拉",
+      "price": 18,
+      "mood": 2,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "蘑菇浓汤",
+      "price": 18,
+      "mood": 4,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "番茄蛋汤",
+      "price": 12,
+      "mood": 4,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "冬日小火锅",
+      "price": 45,
+      "mood": 9,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "双人分享餐",
+      "price": 68,
+      "mood": 11,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "生日小蛋糕",
+      "price": 58,
+      "mood": 12,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "节日点心礼盒",
+      "price": 48,
+      "mood": 8,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "便当食材包",
+      "price": 28,
+      "mood": 4,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "一篮应季蔬菜",
+      "price": 22,
+      "mood": 2,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "一盒鸡蛋",
+      "price": 16,
+      "mood": 1,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "一小袋大米",
+      "price": 25,
+      "mood": 1,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "打折临期面包",
+      "price": 5,
+      "mood": 1,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "过甜的奶茶",
+      "price": 18,
+      "mood": -2,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "夹心太少的面包",
+      "price": 8,
+      "mood": -1,
+      "need": "meal"
+    },
+    {
+      "cat": "吃的",
+      "name": "放凉的薯条",
+      "price": 10,
+      "mood": -2,
+      "need": "snack"
+    },
+    {
+      "cat": "吃的",
+      "name": "咖啡",
+      "price": 15,
+      "mood": 4,
+      "need": "drink"
+    },
+    {
+      "cat": "吃的",
+      "name": "新鲜蔬菜",
+      "price": 12,
+      "mood": 1,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "土豆",
+      "price": 6,
+      "mood": 1,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "番茄",
+      "price": 6,
+      "mood": 1,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "洋葱",
+      "price": 5,
+      "mood": 0,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "猪肉",
+      "price": 22,
+      "mood": 2,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "牛肉块",
+      "price": 32,
+      "mood": 3,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "鸡胸肉",
+      "price": 16,
+      "mood": 1,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "鲜虾",
+      "price": 28,
+      "mood": 3,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "豆腐",
+      "price": 8,
+      "mood": 1,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "面条",
+      "price": 10,
+      "mood": 1,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "面粉",
+      "price": 12,
+      "mood": 1,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "香菇",
+      "price": 9,
+      "mood": 1,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "玉米",
+      "price": 7,
+      "mood": 1,
+      "need": "ingredient"
+    },
+    {
+      "cat": "吃的",
+      "name": "胡萝卜",
+      "price": 5,
+      "mood": 0,
+      "need": "ingredient"
+    },
+    {
+      "cat": "衣服",
+      "name": "T恤",
+      "price": 45,
+      "mood": 7
+    },
+    {
+      "cat": "衣服",
+      "name": "好看的外套",
+      "price": 120,
+      "mood": 10
+    },
+    {
+      "cat": "衣服",
+      "name": "基础背心",
+      "price": 25,
+      "mood": 3
+    },
+    {
+      "cat": "衣服",
+      "name": "条纹短袖",
+      "price": 40,
+      "mood": 6
+    },
+    {
+      "cat": "衣服",
+      "name": "宽松衬衫",
+      "price": 65,
+      "mood": 7
+    },
+    {
+      "cat": "衣服",
+      "name": "纯色卫衣",
+      "price": 80,
+      "mood": 8
+    },
+    {
+      "cat": "衣服",
+      "name": "连帽卫衣",
+      "price": 95,
+      "mood": 9
+    },
+    {
+      "cat": "衣服",
+      "name": "针织开衫",
+      "price": 88,
+      "mood": 8
+    },
+    {
+      "cat": "衣服",
+      "name": "软绒毛衣",
+      "price": 110,
+      "mood": 9
+    },
+    {
+      "cat": "衣服",
+      "name": "牛仔外套",
+      "price": 115,
+      "mood": 8
+    },
+    {
+      "cat": "衣服",
+      "name": "小风衣",
+      "price": 160,
+      "mood": 11
+    },
+    {
+      "cat": "衣服",
+      "name": "轻便羽绒服",
+      "price": 220,
+      "mood": 11
+    },
+    {
+      "cat": "衣服",
+      "name": "夏日薄衫",
+      "price": 55,
+      "mood": 6
+    },
+    {
+      "cat": "衣服",
+      "name": "背带裤",
+      "price": 75,
+      "mood": 8
+    },
+    {
+      "cat": "衣服",
+      "name": "运动短裤",
+      "price": 38,
+      "mood": 5
+    },
+    {
+      "cat": "衣服",
+      "name": "舒适长裤",
+      "price": 58,
+      "mood": 6
+    },
+    {
+      "cat": "衣服",
+      "name": "百褶短裙",
+      "price": 62,
+      "mood": 7
+    },
+    {
+      "cat": "衣服",
+      "name": "碎花连衣裙",
+      "price": 95,
+      "mood": 9
+    },
+    {
+      "cat": "衣服",
+      "name": "简约长裙",
+      "price": 90,
+      "mood": 8
+    },
+    {
+      "cat": "衣服",
+      "name": "海边度假衫",
+      "price": 65,
+      "mood": 8
+    },
+    {
+      "cat": "衣服",
+      "name": "睡衣套装",
+      "price": 68,
+      "mood": 8
+    },
+    {
+      "cat": "衣服",
+      "name": "软绒睡袍",
+      "price": 98,
+      "mood": 9
+    },
+    {
+      "cat": "衣服",
+      "name": "雨衣",
+      "price": 48,
+      "mood": 5
+    },
+    {
+      "cat": "衣服",
+      "name": "围裙",
+      "price": 28,
+      "mood": 4
+    },
+    {
+      "cat": "衣服",
+      "name": "一双棉袜",
+      "price": 8,
+      "mood": 2
+    },
+    {
+      "cat": "衣服",
+      "name": "彩色条纹袜",
+      "price": 12,
+      "mood": 4
+    },
+    {
+      "cat": "衣服",
+      "name": "厚绒袜",
+      "price": 18,
+      "mood": 5
+    },
+    {
+      "cat": "衣服",
+      "name": "毛绒家居鞋",
+      "price": 35,
+      "mood": 5
+    },
+    {
+      "cat": "衣服",
+      "name": "小白鞋",
+      "price": 65,
+      "mood": 7
+    },
+    {
+      "cat": "衣服",
+      "name": "运动鞋",
+      "price": 95,
+      "mood": 8
+    },
+    {
+      "cat": "衣服",
+      "name": "雨靴",
+      "price": 60,
+      "mood": 5
+    },
+    {
+      "cat": "衣服",
+      "name": "棒球帽",
+      "price": 30,
+      "mood": 5
+    },
+    {
+      "cat": "衣服",
+      "name": "渔夫帽",
+      "price": 35,
+      "mood": 6
+    },
+    {
+      "cat": "衣服",
+      "name": "毛线帽",
+      "price": 32,
+      "mood": 6
+    },
+    {
+      "cat": "衣服",
+      "name": "柔软围巾",
+      "price": 45,
+      "mood": 7
+    },
+    {
+      "cat": "衣服",
+      "name": "针织手套",
+      "price": 22,
+      "mood": 4
+    },
+    {
+      "cat": "衣服",
+      "name": "漂亮领结",
+      "price": 18,
+      "mood": 5
+    },
+    {
+      "cat": "衣服",
+      "name": "星星发夹",
+      "price": 12,
+      "mood": 4
+    },
+    {
+      "cat": "衣服",
+      "name": "节日小披风",
+      "price": 88,
+      "mood": 10
+    },
+    {
+      "cat": "衣服",
+      "name": "买大了一号的上衣",
+      "price": 42,
+      "mood": -2
+    },
+    {
+      "cat": "其他",
+      "name": "一本书",
+      "price": 30,
+      "mood": 5
+    },
+    {
+      "cat": "其他",
+      "name": "绘本",
+      "price": 28,
+      "mood": 5
+    },
+    {
+      "cat": "其他",
+      "name": "悬疑小说",
+      "price": 35,
+      "mood": 6
+    },
+    {
+      "cat": "其他",
+      "name": "漫画单行本",
+      "price": 25,
+      "mood": 6
+    },
+    {
+      "cat": "其他",
+      "name": "诗集",
+      "price": 28,
+      "mood": 4
+    },
+    {
+      "cat": "其他",
+      "name": "植物图鉴",
+      "price": 45,
+      "mood": 5
+    },
+    {
+      "cat": "其他",
+      "name": "烘焙食谱",
+      "price": 38,
+      "mood": 5
+    },
+    {
+      "cat": "其他",
+      "name": "旅行杂志",
+      "price": 18,
+      "mood": 4
+    },
+    {
+      "cat": "其他",
+      "name": "精装画册",
+      "price": 85,
+      "mood": 7
+    },
+    {
+      "cat": "其他",
+      "name": "空白笔记本",
+      "price": 12,
+      "mood": 3
+    },
+    {
+      "cat": "其他",
+      "name": "漂亮手账本",
+      "price": 28,
+      "mood": 5
+    },
+    {
+      "cat": "其他",
+      "name": "一支顺手的笔",
+      "price": 8,
+      "mood": 2
+    },
+    {
+      "cat": "其他",
+      "name": "彩色铅笔",
+      "price": 24,
+      "mood": 4
+    },
+    {
+      "cat": "其他",
+      "name": "水彩颜料",
+      "price": 38,
+      "mood": 6
+    },
+    {
+      "cat": "其他",
+      "name": "素描本",
+      "price": 18,
+      "mood": 4
+    },
+    {
+      "cat": "其他",
+      "name": "星星贴纸",
+      "price": 6,
+      "mood": 3
+    },
+    {
+      "cat": "其他",
+      "name": "花纹胶带",
+      "price": 10,
+      "mood": 4
+    },
+    {
+      "cat": "其他",
+      "name": "明信片套装",
+      "price": 15,
+      "mood": 4
+    },
+    {
+      "cat": "其他",
+      "name": "小印章",
+      "price": 18,
+      "mood": 4
+    },
+    {
+      "cat": "其他",
+      "name": "黏土材料包",
+      "price": 25,
+      "mood": 5
+    },
+    {
+      "cat": "其他",
+      "name": "编织材料包",
+      "price": 32,
+      "mood": 5
+    },
+    {
+      "cat": "其他",
+      "name": "拼图",
+      "price": 45,
+      "mood": 6
+    },
+    {
+      "cat": "其他",
+      "name": "桌游",
+      "price": 55,
+      "mood": 7
+    },
+    {
+      "cat": "其他",
+      "name": "扑克牌",
+      "price": 8,
+      "mood": 3
+    },
+    {
+      "cat": "其他",
+      "name": "魔方",
+      "price": 18,
+      "mood": 4
+    },
+    {
+      "cat": "其他",
+      "name": "小木头积木",
+      "price": 35,
+      "mood": 5
+    },
+    {
+      "cat": "其他",
+      "name": "橡皮小鸭",
+      "price": 12,
+      "mood": 4
+    },
+    {
+      "cat": "其他",
+      "name": "毛绒玩偶",
+      "price": 45,
+      "mood": 8
+    },
+    {
+      "cat": "其他",
+      "name": "大号抱抱玩偶",
+      "price": 95,
+      "mood": 10
+    },
+    {
+      "cat": "其他",
+      "name": "八音盒",
+      "price": 110,
+      "mood": 9
+    },
+    {
+      "cat": "其他",
+      "name": "风铃",
+      "price": 35,
+      "mood": 6
+    },
+    {
+      "cat": "其他",
+      "name": "小雪景球",
+      "price": 55,
+      "mood": 7
+    },
+    {
+      "cat": "其他",
+      "name": "沙漏",
+      "price": 28,
+      "mood": 5
+    },
+    {
+      "cat": "其他",
+      "name": "小盆多肉",
+      "price": 15,
+      "mood": 4
+    },
+    {
+      "cat": "其他",
+      "name": "窗台小绿植",
+      "price": 28,
+      "mood": 5
+    },
+    {
+      "cat": "其他",
+      "name": "一束鲜花",
+      "price": 35,
+      "mood": 7
+    },
+    {
+      "cat": "其他",
+      "name": "干花花束",
+      "price": 30,
+      "mood": 6
+    },
+    {
+      "cat": "其他",
+      "name": "花种小袋",
+      "price": 8,
+      "mood": 3
+    },
+    {
+      "cat": "其他",
+      "name": "漂亮花盆",
+      "price": 25,
+      "mood": 4
+    },
+    {
+      "cat": "其他",
+      "name": "装饰小彩灯",
+      "price": 38,
+      "mood": 7
+    },
+    {
+      "cat": "其他",
+      "name": "床头小夜灯",
+      "price": 55,
+      "mood": 7
+    },
+    {
+      "cat": "其他",
+      "name": "云朵抱枕",
+      "price": 45,
+      "mood": 7
+    },
+    {
+      "cat": "其他",
+      "name": "柔软小毯子",
+      "price": 68,
+      "mood": 8
+    },
+    {
+      "cat": "其他",
+      "name": "可爱门垫",
+      "price": 28,
+      "mood": 5
+    },
+    {
+      "cat": "其他",
+      "name": "小相框",
+      "price": 18,
+      "mood": 4
+    },
+    {
+      "cat": "其他",
+      "name": "墙面装饰画",
+      "price": 48,
+      "mood": 6
+    },
+    {
+      "cat": "其他",
+      "name": "迷你书架",
+      "price": 128,
+      "mood": 8
+    },
+    {
+      "cat": "其他",
+      "name": "窗边懒人椅",
+      "price": 260,
+      "mood": 12
+    },
+    {
+      "cat": "其他",
+      "name": "小投影仪",
+      "price": 420,
+      "mood": 14
+    },
+    {
+      "cat": "其他",
+      "name": "掉漆的打折摆件",
+      "price": 12,
+      "mood": -2
+    }
+  ],
+  "recipes": [
+    {
+      "name": "番茄炒蛋",
+      "ingredients": [
+        "番茄",
+        "一盒鸡蛋"
+      ],
+      "mood": 6
+    },
+    {
+      "name": "土豆炖牛肉",
+      "ingredients": [
+        "土豆",
+        "牛肉块"
+      ],
+      "mood": 8
+    },
+    {
+      "name": "香菇鸡汤面",
+      "ingredients": [
+        "面条",
+        "鸡胸肉",
+        "香菇"
+      ],
+      "mood": 7
+    },
+    {
+      "name": "时蔬鸡蛋沙拉",
+      "ingredients": [
+        "新鲜蔬菜",
+        "一盒鸡蛋"
+      ],
+      "mood": 5
+    },
+    {
+      "name": "鲜虾豆腐煲",
+      "ingredients": [
+        "鲜虾",
+        "豆腐"
+      ],
+      "mood": 8
+    },
+    {
+      "name": "玉米排骨汤",
+      "ingredients": [
+        "玉米",
+        "猪肉"
+      ],
+      "mood": 7
+    },
+    {
+      "name": "洋葱炒肉",
+      "ingredients": [
+        "洋葱",
+        "猪肉"
+      ],
+      "mood": 6
+    },
+    {
+      "name": "胡萝卜蛋炒饭",
+      "ingredients": [
+        "一小袋大米",
+        "胡萝卜",
+        "一盒鸡蛋"
+      ],
+      "mood": 6
+    },
+    {
+      "name": "家常便当",
+      "ingredients": [
+        "便当食材包"
+      ],
+      "mood": 5
+    },
+    {
+      "name": "应季蔬菜汤",
+      "ingredients": [
+        "一篮应季蔬菜"
+      ],
+      "mood": 5
+    }
+  ],
+  "workJobs": [
+    {
+      "name": "普通工位工作",
+      "inc": {
+        "min": 90,
+        "max": 190
+      },
+      "mood": -3
+    },
+    {
+      "name": "便利店小时工",
+      "inc": {
+        "min": 65,
+        "max": 115
+      },
+      "mood": -2
+    },
+    {
+      "name": "超市理货员",
+      "inc": {
+        "min": 85,
+        "max": 135
+      },
+      "mood": -3
+    },
+    {
+      "name": "收银员",
+      "inc": {
+        "min": 90,
+        "max": 145
+      },
+      "mood": -4
+    },
+    {
+      "name": "早餐店帮厨",
+      "inc": {
+        "min": 75,
+        "max": 125
+      },
+      "mood": -3
+    },
+    {
+      "name": "咖啡店帮手",
+      "inc": {
+        "min": 75,
+        "max": 130
+      },
+      "mood": -3
+    },
+    {
+      "name": "奶茶店店员",
+      "inc": {
+        "min": 80,
+        "max": 135
+      },
+      "mood": -4
+    },
+    {
+      "name": "面包店打包员",
+      "inc": {
+        "min": 70,
+        "max": 115
+      },
+      "mood": -2
+    },
+    {
+      "name": "餐馆洗碗工",
+      "inc": {
+        "min": 90,
+        "max": 145
+      },
+      "mood": -5
+    },
+    {
+      "name": "后厨备菜员",
+      "inc": {
+        "min": 95,
+        "max": 150
+      },
+      "mood": -5
+    },
+    {
+      "name": "午高峰送餐",
+      "inc": {
+        "min": 115,
+        "max": 185
+      },
+      "mood": -7
+    },
+    {
+      "name": "社区快递分拣",
+      "inc": {
+        "min": 100,
+        "max": 165
+      },
+      "mood": -6
+    },
+    {
+      "name": "小区送报",
+      "inc": {
+        "min": 55,
+        "max": 95
+      },
+      "mood": -1
+    },
+    {
+      "name": "花店整理花束",
+      "inc": {
+        "min": 60,
+        "max": 105
+      },
+      "mood": 1
+    },
+    {
+      "name": "花店节日帮工",
+      "inc": {
+        "min": 110,
+        "max": 175
+      },
+      "mood": -5
+    },
+    {
+      "name": "书店整理书架",
+      "inc": {
+        "min": 60,
+        "max": 105
+      },
+      "mood": 0
+    },
+    {
+      "name": "图书馆归还上架",
+      "inc": {
+        "min": 65,
+        "max": 110
+      },
+      "mood": -1
+    },
+    {
+      "name": "文具店帮手",
+      "inc": {
+        "min": 65,
+        "max": 110
+      },
+      "mood": -1
+    },
+    {
+      "name": "玩具店导购",
+      "inc": {
+        "min": 75,
+        "max": 125
+      },
+      "mood": -2
+    },
+    {
+      "name": "宠物店清洁",
+      "inc": {
+        "min": 80,
+        "max": 130
+      },
+      "mood": -4
+    },
+    {
+      "name": "遛狗短时委托",
+      "inc": {
+        "min": 55,
+        "max": 95
+      },
+      "mood": 1
+    },
+    {
+      "name": "植物浇水委托",
+      "inc": {
+        "min": 50,
+        "max": 85
+      },
+      "mood": 1
+    },
+    {
+      "name": "社区花圃除草",
+      "inc": {
+        "min": 65,
+        "max": 110
+      },
+      "mood": -2
+    },
+    {
+      "name": "公园保洁",
+      "inc": {
+        "min": 75,
+        "max": 125
+      },
+      "mood": -3
+    },
+    {
+      "name": "活动签到员",
+      "inc": {
+        "min": 75,
+        "max": 120
+      },
+      "mood": -2
+    },
+    {
+      "name": "展馆引导员",
+      "inc": {
+        "min": 85,
+        "max": 140
+      },
+      "mood": -3
+    },
+    {
+      "name": "游乐园检票员",
+      "inc": {
+        "min": 85,
+        "max": 135
+      },
+      "mood": -3
+    },
+    {
+      "name": "电影院检票员",
+      "inc": {
+        "min": 80,
+        "max": 130
+      },
+      "mood": -2
+    },
+    {
+      "name": "手工礼盒包装",
+      "inc": {
+        "min": 70,
+        "max": 120
+      },
+      "mood": -2
+    },
+    {
+      "name": "礼物丝带打结",
+      "inc": {
+        "min": 55,
+        "max": 95
+      },
+      "mood": -1
+    },
+    {
+      "name": "手工集市摆摊",
+      "inc": {
+        "min": 65,
+        "max": 140
+      },
+      "mood": -2
+    },
+    {
+      "name": "旧书摊值班",
+      "inc": {
+        "min": 60,
+        "max": 110
+      },
+      "mood": -1
+    },
+    {
+      "name": "二手物品拍照",
+      "inc": {
+        "min": 65,
+        "max": 115
+      },
+      "mood": -2
+    },
+    {
+      "name": "资料录入",
+      "inc": {
+        "min": 90,
+        "max": 150
+      },
+      "mood": -4
+    },
+    {
+      "name": "音频文字整理",
+      "inc": {
+        "min": 85,
+        "max": 145
+      },
+      "mood": -4
+    },
+    {
+      "name": "表格核对",
+      "inc": {
+        "min": 100,
+        "max": 160
+      },
+      "mood": -5
+    },
+    {
+      "name": "商品文案撰写",
+      "inc": {
+        "min": 95,
+        "max": 165
+      },
+      "mood": -4
+    },
+    {
+      "name": "插画小单",
+      "inc": {
+        "min": 85,
+        "max": 180
+      },
+      "mood": -3
+    },
+    {
+      "name": "网页小问题修补",
+      "inc": {
+        "min": 110,
+        "max": 200
+      },
+      "mood": -5
+    },
+    {
+      "name": "小游戏测试",
+      "inc": {
+        "min": 90,
+        "max": 155
+      },
+      "mood": -4
+    },
+    {
+      "name": "儿童画室助教",
+      "inc": {
+        "min": 75,
+        "max": 125
+      },
+      "mood": -2
+    },
+    {
+      "name": "社区手工课助教",
+      "inc": {
+        "min": 75,
+        "max": 125
+      },
+      "mood": -1
+    },
+    {
+      "name": "街头小表演",
+      "inc": {
+        "min": 50,
+        "max": 110
+      },
+      "mood": 1
+    },
+    {
+      "name": "给邻居整理杂物",
+      "inc": {
+        "min": 70,
+        "max": 120
+      },
+      "mood": -3
+    },
+    {
+      "name": "搬家打包协助",
+      "inc": {
+        "min": 110,
+        "max": 180
+      },
+      "mood": -7
+    },
+    {
+      "name": "仓库临时搬运",
+      "inc": {
+        "min": 130,
+        "max": 205
+      },
+      "mood": -8
+    },
+    {
+      "name": "周末展会布置",
+      "inc": {
+        "min": 125,
+        "max": 200
+      },
+      "mood": -7
+    },
+    {
+      "name": "节日前夕赶工",
+      "inc": {
+        "min": 140,
+        "max": 220
+      },
+      "mood": -9
+    },
+    {
+      "name": "夜班值守",
+      "inc": {
+        "min": 145,
+        "max": 230
+      },
+      "mood": -10
+    },
+    {
+      "name": "临时项目加班",
+      "inc": {
+        "min": 160,
+        "max": 260
+      },
+      "mood": -12
+    }
+  ],
+  "adventureOutcomes": [
+    {
+      "w": 6.0,
+      "result": "受伤",
+      "coin": 0,
+      "mood": -10
+    },
+    {
+      "w": 5.0,
+      "result": "踩进水坑",
+      "coin": 0,
+      "mood": -3
+    },
+    {
+      "w": 4.0,
+      "result": "遇到突然的阵雨",
+      "coin": 0,
+      "mood": -4
+    },
+    {
+      "w": 3.0,
+      "result": "被树枝绊了一下",
+      "coin": 0,
+      "mood": -5
+    },
+    {
+      "w": 2.0,
+      "result": "绕了很远的冤枉路",
+      "coin": 0,
+      "mood": -5
+    },
+    {
+      "w": 2.0,
+      "result": "零花钱从口袋漏掉",
+      "coin": -10,
+      "mood": -6
+    },
+    {
+      "w": 2.0,
+      "result": "背包带子突然断了",
+      "coin": -15,
+      "mood": -5
+    },
+    {
+      "w": 2.0,
+      "result": "点心被海鸥叼走",
+      "coin": 0,
+      "mood": -4
+    },
+    {
+      "w": 2.0,
+      "result": "穿灌木时被划了一下",
+      "coin": 0,
+      "mood": -7
+    },
+    {
+      "w": 2.0,
+      "result": "按地图找了个空地点",
+      "coin": 0,
+      "mood": -3
+    },
+    {
+      "w": 5.0,
+      "result": "捡到宝藏",
+      "coin": {
+        "min": 40,
+        "max": 140
+      },
+      "mood": 6
+    },
+    {
+      "w": 4.0,
+      "result": "捡到一枚旧硬币",
+      "coin": {
+        "min": 5,
+        "max": 15
+      },
+      "mood": 3
+    },
+    {
+      "w": 3.0,
+      "result": "找到藏在石缝里的零钱",
+      "coin": {
+        "min": 10,
+        "max": 25
+      },
+      "mood": 4
+    },
+    {
+      "w": 3.0,
+      "result": "帮迷路旅人指路收到谢礼",
+      "coin": {
+        "min": 15,
+        "max": 35
+      },
+      "mood": 5
+    },
+    {
+      "w": 2.0,
+      "result": "归还遗失物收到酬谢",
+      "coin": {
+        "min": 20,
+        "max": 50
+      },
+      "mood": 7
+    },
+    {
+      "w": 2.0,
+      "result": "在旧码头发现小钱匣",
+      "coin": {
+        "min": 25,
+        "max": 60
+      },
+      "mood": 5
+    },
+    {
+      "w": 2.0,
+      "result": "找到被遗忘的探险补给箱",
+      "coin": {
+        "min": 30,
+        "max": 70
+      },
+      "mood": 6
+    },
+    {
+      "w": 2.0,
+      "result": "解开路边谜题领到奖励",
+      "coin": {
+        "min": 35,
+        "max": 80
+      },
+      "mood": 7
+    },
+    {
+      "w": 1.0,
+      "result": "在旧树洞里发现宝箱",
+      "coin": {
+        "min": 90,
+        "max": 160
+      },
+      "mood": 9
+    },
+    {
+      "w": 1.0,
+      "result": "找到星星形状的秘密宝藏",
+      "coin": {
+        "min": 160,
+        "max": 240
+      },
+      "mood": 12
+    },
+    {
+      "w": 6.0,
+      "result": "平安而归",
+      "coin": 0,
+      "mood": 5
+    },
+    {
+      "w": 4.0,
+      "result": "发现一条开满小花的路",
+      "coin": 0,
+      "mood": 5
+    },
+    {
+      "w": 3.0,
+      "result": "在山坡上看了一会儿云",
+      "coin": 0,
+      "mood": 4
+    },
+    {
+      "w": 3.0,
+      "result": "找到一处清凉的小溪",
+      "coin": 0,
+      "mood": 6
+    },
+    {
+      "w": 3.0,
+      "result": "遇到愿意带路的小鸟",
+      "coin": 0,
+      "mood": 5
+    },
+    {
+      "w": 2.0,
+      "result": "在林间发现蘑菇圈",
+      "coin": 0,
+      "mood": 6
+    },
+    {
+      "w": 2.0,
+      "result": "在旧灯塔下看见海浪",
+      "coin": 0,
+      "mood": 7
+    },
+    {
+      "w": 2.0,
+      "result": "在石桥边听到有人吹笛子",
+      "coin": 0,
+      "mood": 5
+    },
+    {
+      "w": 2.0,
+      "result": "在废弃车站发现旧壁画",
+      "coin": 0,
+      "mood": 5
+    },
+    {
+      "w": 2.0,
+      "result": "雨停以后看见彩虹",
+      "coin": 0,
+      "mood": 8
+    },
+    {
+      "w": 2.0,
+      "result": "在芦苇荡听见风声",
+      "coin": 0,
+      "mood": 5
+    },
+    {
+      "w": 2.0,
+      "result": "顺着脚印找到猫咪午睡地",
+      "coin": 0,
+      "mood": 7
+    },
+    {
+      "w": 2.0,
+      "result": "在海边捡到漂亮贝壳",
+      "coin": 0,
+      "mood": 6
+    },
+    {
+      "w": 2.0,
+      "result": "搭了一个不会漏雨的树叶小棚",
+      "coin": 0,
+      "mood": 6
+    },
+    {
+      "w": 2.0,
+      "result": "绕了一圈发现离家并不远",
+      "coin": 0,
+      "mood": 2
+    },
+    {
+      "w": 2.0,
+      "result": "坐错方向却看见陌生风景",
+      "coin": 0,
+      "mood": 4
+    },
+    {
+      "w": 1.0,
+      "result": "遇到整片发光的萤火虫",
+      "coin": 0,
+      "mood": 10
+    },
+    {
+      "w": 1.0,
+      "result": "在夜色里看到一颗流星",
+      "coin": 0,
+      "mood": 10
+    },
+    {
+      "w": 1.0,
+      "result": "发现只有低潮时出现的小路",
+      "coin": 0,
+      "mood": 9
+    },
+    {
+      "w": 1.0,
+      "result": "回程时看见家里亮着的小灯",
+      "coin": 0,
+      "mood": 12
+    }
+  ],
+  "outingOutcomes": [
+    {
+      "w": 4.0,
+      "result": "玩得很开心",
+      "coin": 0,
+      "mood": 9
+    },
+    {
+      "w": 4.0,
+      "result": "在公园慢慢散步",
+      "coin": 0,
+      "mood": 5
+    },
+    {
+      "w": 3.0,
+      "result": "坐在河边晒太阳",
+      "coin": 0,
+      "mood": 5
+    },
+    {
+      "w": 3.0,
+      "result": "去图书馆读到喜欢的故事",
+      "coin": 0,
+      "mood": 6
+    },
+    {
+      "w": 3.0,
+      "result": "听了一场街头音乐表演",
+      "coin": 0,
+      "mood": 7
+    },
+    {
+      "w": 3.0,
+      "result": "和邻居坐在长椅上聊天",
+      "coin": 0,
+      "mood": 6
+    },
+    {
+      "w": 3.0,
+      "result": "在草地上吹了好久的风",
+      "coin": 0,
+      "mood": 5
+    },
+    {
+      "w": 3.0,
+      "result": "逛免费集市看到很多有趣的小摊",
+      "coin": 0,
+      "mood": 6
+    },
+    {
+      "w": 3.0,
+      "result": "在公园荡了一会儿秋千",
+      "coin": 0,
+      "mood": 7
+    },
+    {
+      "w": 3.0,
+      "result": "看了一场露天电影",
+      "coin": 0,
+      "mood": 8
+    },
+    {
+      "w": 3.0,
+      "result": "在广场赶上一场小型灯光秀",
+      "coin": 0,
+      "mood": 8
+    },
+    {
+      "w": 3.0,
+      "result": "到天桥上看橘子色的晚霞",
+      "coin": 0,
+      "mood": 7
+    },
+    {
+      "w": 2.0,
+      "result": "逛旧书店挑到一本喜欢的书",
+      "coin": -20,
+      "mood": 8
+    },
+    {
+      "w": 2.0,
+      "result": "在咖啡馆靠窗的位置发呆",
+      "coin": -18,
+      "mood": 7
+    },
+    {
+      "w": 2.0,
+      "result": "在甜品店吃到刚做好的布丁",
+      "coin": -15,
+      "mood": 8
+    },
+    {
+      "w": 2.0,
+      "result": "看了一场期待很久的电影",
+      "coin": -35,
+      "mood": 11
+    },
+    {
+      "w": 2.0,
+      "result": "在游戏厅玩了几局小游戏",
+      "coin": -15,
+      "mood": 8
+    },
+    {
+      "w": 2.0,
+      "result": "和朋友去桌游店玩一下午",
+      "coin": -30,
+      "mood": 10
+    },
+    {
+      "w": 2.0,
+      "result": "在手工店做了一枚小徽章",
+      "coin": -25,
+      "mood": 9
+    },
+    {
+      "w": 2.0,
+      "result": "参加陶艺体验捏了个歪歪的小碗",
+      "coin": -45,
+      "mood": 11
+    },
+    {
+      "w": 2.0,
+      "result": "在植物园找到了很好闻的小花",
+      "coin": -20,
+      "mood": 9
+    },
+    {
+      "w": 2.0,
+      "result": "在温泉小屋泡了暖暖的热水",
+      "coin": -55,
+      "mood": 13
+    },
+    {
+      "w": 2.0,
+      "result": "坐游船看两岸慢慢亮灯",
+      "coin": -35,
+      "mood": 10
+    },
+    {
+      "w": 2.0,
+      "result": "去水族馆看发光的水母",
+      "coin": -40,
+      "mood": 11
+    },
+    {
+      "w": 2.0,
+      "result": "在K歌房唱了好多喜欢的歌",
+      "coin": -30,
+      "mood": 10
+    },
+    {
+      "w": 2.0,
+      "result": "和朋友一起吃热腾腾的小火锅",
+      "coin": -45,
+      "mood": 12
+    },
+    {
+      "w": 2.0,
+      "result": "租了辆小自行车沿河骑行",
+      "coin": -20,
+      "mood": 9
+    },
+    {
+      "w": 2.0,
+      "result": "在摩天轮最高处看见整个小镇",
+      "coin": -40,
+      "mood": 12
+    },
+    {
+      "w": 3.0,
+      "result": "有点不顺心",
+      "coin": 0,
+      "mood": -4
+    },
+    {
+      "w": 3.0,
+      "result": "想去的店今天临时休息",
+      "coin": 0,
+      "mood": -3
+    },
+    {
+      "w": 3.0,
+      "result": "散步途中忽然下雨",
+      "coin": 0,
+      "mood": -4
+    },
+    {
+      "w": 3.0,
+      "result": "排队太久最后放弃了",
+      "coin": 0,
+      "mood": -4
+    },
+    {
+      "w": 3.0,
+      "result": "人太多没找到安静的地方",
+      "coin": 0,
+      "mood": -3
+    },
+    {
+      "w": 3.0,
+      "result": "和朋友约错了见面地点",
+      "coin": 0,
+      "mood": -4
+    },
+    {
+      "w": 2.0,
+      "result": "电影没有预想中好看",
+      "coin": -35,
+      "mood": -3
+    },
+    {
+      "w": 2.0,
+      "result": "点到一杯不好喝的饮料",
+      "coin": -15,
+      "mood": -2
+    },
+    {
+      "w": 2.0,
+      "result": "游戏厅连续几次都没通关",
+      "coin": -15,
+      "mood": -4
+    },
+    {
+      "w": 2.0,
+      "result": "手工体验做歪了小作品",
+      "coin": -25,
+      "mood": -2
+    },
+    {
+      "w": 2.0,
+      "result": "坐观光车时错过最好看的路段",
+      "coin": -20,
+      "mood": -3
+    },
+    {
+      "w": 2.0,
+      "result": "纪念品买完才发现颜色拿错了",
+      "coin": -18,
+      "mood": -3
+    }
+  ],
+  "mysteryOutcomes": [
+    {
+      "w": 3.0,
+      "result": "全车都是戏精",
+      "coin": -98,
+      "mood": 15
+    },
+    {
+      "w": 3.0,
+      "result": "DM特别会接梗",
+      "coin": -98,
+      "mood": 12
+    },
+    {
+      "w": 3.0,
+      "result": "机制有趣，输赢都开心",
+      "coin": -98,
+      "mood": 12
+    },
+    {
+      "w": 3.0,
+      "result": "最后一轮极限翻盘",
+      "coin": -98,
+      "mood": 14
+    },
+    {
+      "w": 3.0,
+      "result": "队友默契完成阵营目标",
+      "coin": -98,
+      "mood": 11
+    },
+    {
+      "w": 3.0,
+      "result": "故事完整，复盘后劲很大",
+      "coin": -98,
+      "mood": 11
+    },
+    {
+      "w": 3.0,
+      "result": "拼到一车特别友好的陌生玩家",
+      "coin": {
+        "min": -368,
+        "max": -98
+      },
+      "mood": 11
+    },
+    {
+      "w": 3.0,
+      "result": "玩完认识了新的剧本搭子",
+      "coin": {
+        "min": -368,
+        "max": -98
+      },
+      "mood": 9
+    },
+    {
+      "w": 3.0,
+      "result": "情感线完全戳中自己",
+      "coin": -208,
+      "mood": 14
+    },
+    {
+      "w": 3.0,
+      "result": "全车都很入戏",
+      "coin": -208,
+      "mood": 13
+    },
+    {
+      "w": 3.0,
+      "result": "DM演绎感染力拉满",
+      "coin": -208,
+      "mood": 15
+    },
+    {
+      "w": 3.0,
+      "result": "信息战特别精彩",
+      "coin": -208,
+      "mood": 11
+    },
+    {
+      "w": 3.0,
+      "result": "NPC追逐特别刺激",
+      "coin": -258,
+      "mood": 13
+    },
+    {
+      "w": 3.0,
+      "result": "灯光音效氛围绝佳",
+      "coin": -258,
+      "mood": 12
+    },
+    {
+      "w": 3.0,
+      "result": "队友互相壮胆特别配合",
+      "coin": -258,
+      "mood": 11
+    },
+    {
+      "w": 3.0,
+      "result": "线索严谨，成功还原真相",
+      "coin": -258,
+      "mood": 14
+    },
+    {
+      "w": 3.0,
+      "result": "自己抓到关键逻辑",
+      "coin": -258,
+      "mood": 13
+    },
+    {
+      "w": 3.0,
+      "result": "道具机关效果惊艳",
+      "coin": -258,
+      "mood": 10
+    },
+    {
+      "w": 3.0,
+      "result": "服化道和布景特别精致",
+      "coin": -368,
+      "mood": 12
+    },
+    {
+      "w": 3.0,
+      "result": "DM演绎像看小剧场",
+      "coin": -368,
+      "mood": 13
+    },
+    {
+      "w": 4.0,
+      "result": "强行煽情，完全代入不进去",
+      "coin": -208,
+      "mood": -7
+    },
+    {
+      "w": 4.0,
+      "result": "剧本存在明显逻辑硬伤",
+      "coin": -258,
+      "mood": -8
+    },
+    {
+      "w": 4.0,
+      "result": "人没齐，等很久最后没开成",
+      "coin": 0,
+      "mood": -10
+    },
+    {
+      "w": 4.0,
+      "result": "玩到一半有玩家突然跳车",
+      "coin": {
+        "min": -368,
+        "max": -98
+      },
+      "mood": -14
+    },
+    {
+      "w": 4.0,
+      "result": "有人刷手机、频繁出戏",
+      "coin": {
+        "min": -368,
+        "max": -98
+      },
+      "mood": -8
+    },
+    {
+      "w": 4.0,
+      "result": "有人提前看过答案还故意剧透",
+      "coin": {
+        "min": -368,
+        "max": -98
+      },
+      "mood": -15
+    },
+    {
+      "w": 4.0,
+      "result": "推演过程中和其他玩家吵起来",
+      "coin": {
+        "min": -368,
+        "max": -98
+      },
+      "mood": -13
+    },
+    {
+      "w": 4.0,
+      "result": "DM控场或演绎很差",
+      "coin": {
+        "min": -368,
+        "max": -98
+      },
+      "mood": -9
+    },
+    {
+      "w": 4.0,
+      "result": "DM发错/漏发关键线索",
+      "coin": {
+        "min": -368,
+        "max": -98
+      },
+      "mood": -10
+    },
+    {
+      "w": 4.0,
+      "result": "不小心弄坏重要道具",
+      "coin": {
+        "min": -548,
+        "max": -198
+      },
+      "mood": -12
+    }
+  ],
+  "escapeOutcomes": [
+    {
+      "w": 3.0,
+      "result": "全队一路互坑笑不停",
+      "coin": -258,
+      "mood": 14
+    },
+    {
+      "w": 3.0,
+      "result": "小游戏设计特别有趣",
+      "coin": -258,
+      "mood": 11
+    },
+    {
+      "w": 3.0,
+      "result": "谜题层层相扣，顺利通关",
+      "coin": -278,
+      "mood": 14
+    },
+    {
+      "w": 3.0,
+      "result": "独立解开最难的一道题",
+      "coin": -278,
+      "mood": 13
+    },
+    {
+      "w": 3.0,
+      "result": "最后一秒输入正确密码",
+      "coin": -278,
+      "mood": 15
+    },
+    {
+      "w": 3.0,
+      "result": "队友分工特别默契",
+      "coin": {
+        "min": -368,
+        "max": -258
+      },
+      "mood": 12
+    },
+    {
+      "w": 3.0,
+      "result": "店员复盘细致还补充彩蛋",
+      "coin": {
+        "min": -368,
+        "max": -258
+      },
+      "mood": 8
+    },
+    {
+      "w": 3.0,
+      "result": "第一次挑战高难度就通关",
+      "coin": {
+        "min": -368,
+        "max": -258
+      },
+      "mood": 14
+    },
+    {
+      "w": 3.0,
+      "result": "NPC追逐节奏特别刺激",
+      "coin": -338,
+      "mood": 14
+    },
+    {
+      "w": 3.0,
+      "result": "队友互相保护配合很好",
+      "coin": -338,
+      "mood": 11
+    },
+    {
+      "w": 3.0,
+      "result": "NPC演技特别好",
+      "coin": -338,
+      "mood": 12
+    },
+    {
+      "w": 3.0,
+      "result": "暗道和隐藏空间特别丰富",
+      "coin": -338,
+      "mood": 12
+    },
+    {
+      "w": 3.0,
+      "result": "场景和音乐氛围非常到位",
+      "coin": -358,
+      "mood": 12
+    },
+    {
+      "w": 3.0,
+      "result": "剧情反转很精彩",
+      "coin": -358,
+      "mood": 11
+    },
+    {
+      "w": 3.0,
+      "result": "NPC互动像真的进入故事",
+      "coin": -358,
+      "mood": 14
+    },
+    {
+      "w": 3.0,
+      "result": "意外触发隐藏剧情",
+      "coin": -358,
+      "mood": 13
+    },
+    {
+      "w": 3.0,
+      "result": "大型机关启动特别震撼",
+      "coin": -368,
+      "mood": 13
+    },
+    {
+      "w": 3.0,
+      "result": "连续触发多个隐藏机关",
+      "coin": -368,
+      "mood": 12
+    },
+    {
+      "w": 3.0,
+      "result": "机关反应灵敏手感很好",
+      "coin": -368,
+      "mood": 9
+    },
+    {
+      "w": 3.0,
+      "result": "场景像真的进入飞船",
+      "coin": -368,
+      "mood": 12
+    },
+    {
+      "w": 4.0,
+      "result": "谜题答案过于牵强",
+      "coin": -278,
+      "mood": -8
+    },
+    {
+      "w": 4.0,
+      "result": "恐怖强度过高变成折磨",
+      "coin": -338,
+      "mood": -10
+    },
+    {
+      "w": 4.0,
+      "result": "预约出错，到店却没有场次",
+      "coin": 0,
+      "mood": -10
+    },
+    {
+      "w": 4.0,
+      "result": "有队友迟到，游玩时间被压缩",
+      "coin": {
+        "min": -368,
+        "max": -258
+      },
+      "mood": -7
+    },
+    {
+      "w": 4.0,
+      "result": "有玩家中途害怕退出",
+      "coin": {
+        "min": -368,
+        "max": -258
+      },
+      "mood": -9
+    },
+    {
+      "w": 4.0,
+      "result": "有人乱按机关导致流程混乱",
+      "coin": {
+        "min": -368,
+        "max": -258
+      },
+      "mood": -8
+    },
+    {
+      "w": 4.0,
+      "result": "队友因为解题思路吵起来",
+      "coin": {
+        "min": -368,
+        "max": -258
+      },
+      "mood": -12
+    },
+    {
+      "w": 4.0,
+      "result": "关键机关故障只能人工开门",
+      "coin": {
+        "min": -368,
+        "max": -258
+      },
+      "mood": -9
+    },
+    {
+      "w": 4.0,
+      "result": "工作人员提示或控场很差",
+      "coin": {
+        "min": -368,
+        "max": -258
+      },
+      "mood": -8
+    },
+    {
+      "w": 4.0,
+      "result": "不小心损坏机关或场景道具",
+      "coin": {
+        "min": -568,
+        "max": -358
+      },
+      "mood": -12
+    }
+  ]
+}

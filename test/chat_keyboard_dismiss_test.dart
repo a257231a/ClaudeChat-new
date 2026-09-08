@@ -159,11 +159,17 @@ void main() {
     await tester.longPress(userMessage);
     await tester.pump();
     expect(find.byTooltip('编辑并重发'), findsOneWidget);
+    // The sent-message action row is deliberately smaller than the
+    // assistant reply row's own nominal 30px buttons — the reply row only
+    // ever *looks* that compact because it's squeezed by a FittedBox when
+    // its (up to 9) buttons overflow the bubble width; the sent row only
+    // ever has 3 buttons and never overflows, so it never gets that same
+    // shrink unless it's sized down on purpose. See _messageActionExtent.
+    expect(tester.getSize(find.byTooltip('重编')).width, 24);
     expect(
       tester.getSize(find.byTooltip('重编')),
-      tester.getSize(find.byTooltip('重新回答')),
+      tester.getSize(find.byTooltip('编辑并重发')),
     );
-    expect(tester.getSize(find.byTooltip('重编')).width, 30);
 
     await tester.tap(find.byTooltip('编辑并重发'));
     await tester.pump();

@@ -6,6 +6,9 @@ import 'package:uuid/uuid.dart';
 import '../data/app_database.dart';
 import '../domain/entities.dart';
 import 'content_repository.dart';
+import 'our_home/economy_data.dart';
+import 'our_home/our_home_actions.dart';
+import 'our_home/our_home_state.dart';
 import 'safe_web_service.dart';
 import 'settings_service.dart';
 import 'platform_service.dart';
@@ -562,6 +565,60 @@ class ToolService {
         'additionalProperties': false,
       },
     ),
+    ToolDefinition(
+      name: 'read_our_home_status',
+      label: '查看小家状态',
+      description:
+          '读取"我们的家"当前的状态：天气、金币、心情、背包（完整物品清单）、正在做什么事，以及今天（按用户本机日期 0:00~23:59）发生的所有行为记录。',
+      parameters: <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{},
+        'additionalProperties': false,
+      },
+    ),
+    ToolDefinition(
+      name: 'search_our_home_log',
+      label: '搜索小家历史日志',
+      description:
+          '按天读取或按关键词搜索"我们的家"存储过的历史行为日志（最近14天）。'
+          '只想知道某一天发生了什么（比如"昨天"），传 date 即可只拿那一天的记录；'
+          '想找特定事件就用 query 按关键词过滤；两者都留空则返回全部历史（不限于某一天）。'
+          '注意：今天发生的事已经包含在 read_our_home_status 的 todayActivity 里，不需要为此单独调用这个工具。',
+      parameters: <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'date': <String, String>{
+            'type': 'string',
+            'description':
+                '只看这一天的记录，可以是 "today"、"yesterday"，或具体日期 "YYYY-MM-DD"；留空表示不按日期筛选',
+          },
+          'query': <String, String>{
+            'type': 'string',
+            'description': '要搜索的关键词，留空表示不按关键词筛选',
+          },
+        },
+        'additionalProperties': false,
+      },
+    ),
+    ToolDefinition(
+      name: 'our_home_pet_action',
+      label: '让小家的螃蟹做点什么',
+      description:
+          '让"我们的家"里的小螃蟹去工作/睡觉/采购/吃饭/喝水/洗澡/吃零食/做饭，或者把它从当前的事情里叫回来。'
+          '如果它正忙着（工作/睡觉/外出中），除了"come_home"（叫回来）之外的动作都会失败并说明原因。',
+      parameters: <String, Object?>{
+        'type': 'object',
+        'required': <String>['action'],
+        'properties': <String, Object?>{
+          'action': <String, Object?>{
+            'type': 'string',
+            'enum': ourHomeActionKeys,
+            'description': '要执行的动作',
+          },
+        },
+        'additionalProperties': false,
+      },
+    ),
   ];
 
   static const legacyChatToolNames = <String>[
@@ -646,6 +703,9 @@ class ToolService {
         'schedule_notification' => await _notification(args),
         'create_system_reminder' => await _systemReminder(args),
         'update_home_widget' => await _widget(args),
+        'read_our_home_status' => await _ourHomeStatus(),
+        'search_our_home_log' => await _ourHomeSearchLog(args),
+        'our_home_pet_action' => await _ourHomePetAction(args),
         _ => <String, String>{'error': '工具尚未实现'},
       };
       return jsonEncode(result);
@@ -656,6 +716,104 @@ class ToolService {
   }
 
   String? activeConversationId;
+
+  Future<OurHomeState> _loadOurHomeState() async {
+    final data = await OurHomeEconomyData.load();
+    final home = await OurHomeState.load(data);
+    final settled = home.resolvePendingLongActivity();
+    if (settled != null) {
+      home.fullLog.add(LogEntry(time: DateTime.now(), text: settled.summary));
+      await home.save();
+    }
+    return home;
+  }
+
+  Future<Map<String, Object?>> _ourHomeStatus() async {
+    final home = await _loadOurHomeState();
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+    final todayActivity = home.fullLog
+        .where((entry) => !entry.time.isBefore(todayStart))
+        .map((entry) => '${_hhmm(entry.time)} ${entry.text}')
+        .toList();
+    return <String, Object?>{
+      'coins': home.coins,
+      'mood': home.mood,
+      'status': describeOurHomeStatus(home),
+      'weather': home.weatherKey,
+      'backpack': home.inventory,
+      'todayActivity': todayActivity,
+    };
+  }
+
+  Future<Map<String, Object?>> _ourHomeSearchLog(
+    Map<String, Object?> args,
+  ) async {
+    final home = await _loadOurHomeState();
+    final query = '${args['query'] ?? ''}'.trim();
+    final dayStart = _parseLogDateArg('${args['date'] ?? ''}'.trim());
+    final dayEnd = dayStart?.add(const Duration(days: 1));
+    final entries = home.fullLog
+        .where((entry) => query.isEmpty || entry.text.contains(query))
+        .where(
+          (entry) =>
+              dayStart == null ||
+              (!entry.time.isBefore(dayStart) && entry.time.isBefore(dayEnd!)),
+        )
+        .map((entry) => '${_ymdHm(entry.time)} ${entry.text}')
+        .toList();
+    return <String, Object?>{'entries': entries};
+  }
+
+  /// Parses `search_our_home_log`'s `date` arg ("today" / "yesterday" /
+  /// "YYYY-MM-DD") into the start of that local calendar day, or null if
+  /// empty/unparseable (meaning "don't filter by date").
+  DateTime? _parseLogDateArg(String raw) {
+    final lower = raw.toLowerCase();
+    if (lower.isEmpty) return null;
+    final now = DateTime.now();
+    if (lower == 'today') return DateTime(now.year, now.month, now.day);
+    if (lower == 'yesterday') {
+      final y = now.subtract(const Duration(days: 1));
+      return DateTime(y.year, y.month, y.day);
+    }
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return null;
+    return DateTime(parsed.year, parsed.month, parsed.day);
+  }
+
+  String _hhmm(DateTime t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  String _ymdHm(DateTime t) =>
+      '${t.year}-${t.month.toString().padLeft(2, '0')}-${t.day.toString().padLeft(2, '0')} '
+      '${_hhmm(t)}';
+
+  Future<Map<String, Object?>> _ourHomePetAction(
+    Map<String, Object?> args,
+  ) async {
+    final home = await _loadOurHomeState();
+    final action = '${args['action'] ?? ''}';
+    final result = await performOurHomeAction(home, action);
+    // This tool is only reachable from @ta's own tool-calling loop (never
+    // the main chat model — see app_controller.dart's tool-list filter),
+    // so a model, not the user, decided this — source: model, distinct
+    // from a user typing the same command directly into the page's chat.
+    // "come_home" specifically means interrupting something; anything else
+    // is starting a fresh action.
+    home.fullLog.add(
+      LogEntry(
+        time: DateTime.now(),
+        text: result.summary,
+        actionType: action == 'come_home'
+            ? LogActionType.interrupt
+            : LogActionType.chat,
+        source: LogSource.model,
+      ),
+    );
+    await home.save();
+    return <String, Object?>{'ok': result.ok, 'summary': result.summary};
+  }
 
   Future<Map<String, Object?>> _time() async {
     final now = DateTime.now();

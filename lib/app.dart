@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_markdown_plus_latex/flutter_markdown_plus_latex.dart';
@@ -19,6 +21,11 @@ import 'domain/entities.dart';
 import 'services/attachment_service.dart';
 import 'services/api_client.dart';
 import 'services/content_repository.dart';
+import 'services/our_home/our_home_actions.dart';
+import 'services/our_home/our_home_away_scenes.dart';
+import 'services/our_home/our_home_emote_registry.dart';
+import 'services/our_home/our_home_emote_triggers.dart';
+import 'services/our_home/our_home_state.dart';
 import 'services/settings_service.dart';
 import 'services/tool_service.dart';
 import 'services/voice_service.dart';
@@ -51,8 +58,15 @@ const _drawerScreenMaxShift = 348.0;
 // The legacy compact preset scales the inherited chat body to 13px. Store the
 // inverse-scaled value so the rendered message size remains exact.
 const _legacyChatBodyFontSize = 130 / 9;
-const _messageActionExtent = 30.0;
-const _messageActionGap = 1.0;
+// Sent-message action row only (_LegacyUserMessage._action) — the assistant
+// reply row uses its own hardcoded 30/16/1 constraints directly, and shrinks
+// dynamically via a FittedBox when its (up to 9) buttons + footer overflow
+// the bubble width. The sent row only ever has 3 buttons, so it never
+// naturally overflows and never gets that same shrink — sized down here on
+// purpose to look as compact as the reply row typically renders.
+const _messageActionExtent = 24.0;
+const _messageActionIconSize = 13.0;
+const _messageActionGap = 0.0;
 const _uuid = Uuid();
 
 final md.ExtensionSet _legacyMarkdownExtensionSet =
@@ -379,6 +393,7 @@ class _AppShellState extends State<AppShell> {
   final diaryPageKey = GlobalKey<_DiaryPageState>();
   final filesPageKey = GlobalKey<_FilesPageState>();
   final workspacePageKey = GlobalKey<_WorkspacesPageState>();
+  final ourHomePageKey = GlobalKey<_OurHomePageState>();
   String? approvalShowing;
   int? noticeNavigationHandling;
   bool drawerOpen = false;
@@ -504,6 +519,11 @@ class _AppShellState extends State<AppShell> {
                                                 _openWorkspaceSettings,
                                             onOpenWorkspaceConversations:
                                                 _openWorkspaceConversations,
+                                            onOurHomeBackpack:
+                                                _openOurHomeBackpack,
+                                            onOurHomeBirthday:
+                                                _editOurHomeProfile,
+                                            onOurHomeLog: _openOurHomeLog,
                                           ),
                                           Expanded(child: _page(controller)),
                                         ],
@@ -622,6 +642,20 @@ class _AppShellState extends State<AppShell> {
     workspacePageKey.currentState?.openConversationMenu();
   }
 
+  void _editOurHomeProfile() {
+    ourHomePageKey.currentState?.editProfileFromShell();
+  }
+
+  void _openOurHomeBackpack() {
+    ourHomePageKey.currentState?.openBackpackFromShell();
+  }
+
+  void _openOurHomeLog() {
+    final home = ourHomePageKey.currentState?.homeForShell;
+    if (home == null) return;
+    unawaited(_openOurHomeLogPage(context, home));
+  }
+
   Future<void> _openNoticeTarget(AppNoticeNavigation navigation) async {
     if (!mounted) return;
     _closeDrawer();
@@ -652,6 +686,7 @@ class _AppShellState extends State<AppShell> {
       case AppSection.chat ||
           AppSection.voices ||
           AppSection.workspaces ||
+          AppSection.ourHome ||
           AppSection.settings:
         break;
     }
@@ -707,6 +742,8 @@ class _AppShellState extends State<AppShell> {
       key: workspacePageKey,
       controller: controller,
     ),
+    AppSection.ourHome =>
+      _OurHomePage(key: ourHomePageKey, controller: controller),
     AppSection.settings => _SettingsPage(controller: controller),
   };
 
@@ -793,6 +830,9 @@ class _WebTopBar extends StatelessWidget {
     required this.onWorkspaceBack,
     required this.onOpenWorkspaceSettings,
     required this.onOpenWorkspaceConversations,
+    required this.onOurHomeBackpack,
+    required this.onOurHomeBirthday,
+    required this.onOurHomeLog,
   });
 
   final AppController controller;
@@ -805,6 +845,9 @@ class _WebTopBar extends StatelessWidget {
   final VoidCallback onWorkspaceBack;
   final VoidCallback onOpenWorkspaceSettings;
   final VoidCallback onOpenWorkspaceConversations;
+  final VoidCallback onOurHomeBackpack;
+  final VoidCallback onOurHomeBirthday;
+  final VoidCallback onOurHomeLog;
 
   @override
   Widget build(BuildContext context) => SafeArea(
@@ -904,7 +947,14 @@ class _WebTopBar extends StatelessWidget {
             ),
           ),
           Expanded(child: _center(context)),
-          SizedBox(width: 64, child: _trailing(context)),
+          // Wide enough for the "我们的家" trailing row's 3 icons (背包/生日/
+          // 历史日志, 30px each, no gaps = 90px) — a plain 64px box used to
+          // silently push the 3rd icon (历史日志) almost entirely off the
+          // right edge of the screen since Align doesn't clip an overflowing
+          // child, it just lets it paint past the box and get cut off by the
+          // screen bounds. Every other section only ever shows 1-2 icons
+          // here, so this is still comfortably enough for those.
+          SizedBox(width: 100, child: _trailing(context)),
         ],
       ),
     ),
@@ -1126,6 +1176,57 @@ class _WebTopBar extends StatelessWidget {
                 ),
                 icon: const Icon(Icons.settings_outlined, size: 18),
                 tooltip: '工作区设置',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (controller.section == AppSection.ourHome) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            SizedBox.square(
+              dimension: 30,
+              child: IconButton(
+                onPressed: onOurHomeBackpack,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 30,
+                  height: 30,
+                ),
+                icon: const Icon(Icons.backpack_outlined, size: 18),
+                tooltip: '背包',
+              ),
+            ),
+            const SizedBox(width: 3),
+            SizedBox.square(
+              dimension: 30,
+              child: IconButton(
+                onPressed: onOurHomeBirthday,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 30,
+                  height: 30,
+                ),
+                icon: const Text('🎂', style: TextStyle(fontSize: 16)),
+                tooltip: '改名字/设置生日',
+              ),
+            ),
+            const SizedBox(width: 3),
+            SizedBox.square(
+              dimension: 30,
+              child: IconButton(
+                onPressed: onOurHomeLog,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 30,
+                  height: 30,
+                ),
+                icon: const Icon(Icons.history_rounded, size: 18),
+                tooltip: '历史日志',
               ),
             ),
           ],
@@ -1517,6 +1618,16 @@ class _Sidebar extends StatelessWidget {
                           label: 'Ta的工作室',
                           selected: controller.section == AppSection.workspaces,
                           onTap: () => _open(AppSection.workspaces),
+                        ),
+                        _NavTile(
+                          // TODO(our-home): swap for a real crab/home icon
+                          // once the pixel room is ported (later phase) —
+                          // reusing `star` for now so Phase 1 doesn't block
+                          // on drawing new _LegacyIcon artwork.
+                          icon: _LegacyIconKind.star,
+                          label: controller.ourHomeSimulation.state?.title ?? '我们的家',
+                          selected: controller.section == AppSection.ourHome,
+                          onTap: () => _open(AppSection.ourHome),
                         ),
                         const _DrawerSectionTitle('Starred'),
                         ..._conversationRows(context, starred.toList(), true),
@@ -2548,19 +2659,22 @@ class _LegacyIconPainter extends CustomPainter {
             ),
           paint,
         );
+        // Arrowhead barbs point along each arc's direction of travel
+        // (tucked in toward the ring, matching a standard clockwise-refresh
+        // glyph) — they previously pointed outward/backward from the arc.
         canvas
           ..drawPath(
             Path()
               ..moveTo(18, 2)
               ..lineTo(18, 6)
-              ..lineTo(22, 6),
+              ..lineTo(14, 6),
             paint,
           )
           ..drawPath(
             Path()
               ..moveTo(6, 22)
               ..lineTo(6, 18)
-              ..lineTo(2, 18),
+              ..lineTo(10, 18),
             paint,
           );
       case _LegacyIconKind.send:
@@ -3862,7 +3976,7 @@ class _MessageBubble extends StatelessWidget {
     ];
     return effective.map<Widget>((part) {
       return switch (part.type) {
-        'status' => _StatusCapsule(part: part),
+        'status' => _StatusCapsule(part: part, controller: controller),
         'tool' => _ToolCapsule(
           part: part,
           controller: controller,
@@ -4236,7 +4350,7 @@ class _LegacyUserMessageState extends State<_LegacyUserMessage> {
       width: _messageActionExtent,
       height: _messageActionExtent,
     ),
-    icon: _LegacyIcon(icon, size: 16, color: _lightMuted),
+    icon: _LegacyIcon(icon, size: _messageActionIconSize, color: _lightMuted),
   );
 
   void _edit({required bool resend}) {
@@ -4844,10 +4958,32 @@ class _ThoughtBlockState extends State<_ThoughtBlock> {
   );
 }
 
+/// Looks up the "常态化时间戳" value for a reply capsule: the moment the
+/// *preceding user message* was sent, frozen at that instant (not the
+/// capsule's own render time) — persisted on that user message's metadata
+/// by [AppController.send], so it never changes for the life of this reply
+/// regardless of how long generation takes. Returns null if that message
+/// predates the field existing, or the toggle is off.
+String? _replyTimestampLabel(AppController controller, String assistantMessageId) {
+  final messages = controller.messages;
+  final index = messages.indexWhere((m) => m.id == assistantMessageId);
+  if (index < 0) return null;
+  for (var i = index - 1; i >= 0; i--) {
+    if (messages[i].role != 'user') continue;
+    final raw = messages[i].metadata['sentAt'];
+    if (raw is! String) return null;
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return null;
+    return DateFormat('yyyy.MM.dd - HH:mm:ss').format(parsed.toLocal());
+  }
+  return null;
+}
+
 class _StatusCapsule extends StatelessWidget {
-  const _StatusCapsule({required this.part});
+  const _StatusCapsule({required this.part, required this.controller});
 
   final MessagePart part;
+  final AppController controller;
 
   @override
   Widget build(BuildContext context) {
@@ -4861,11 +4997,18 @@ class _StatusCapsule extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final muted = dark ? const Color(0xFF96948B) : _lightMuted;
     final danger = dark ? const Color(0xFFFF8178) : _lightDanger;
+    final showTimestamp =
+        status == 'replying' &&
+        controller.settings['alwaysShowReplyTimestamp'] != false;
+    final sentAtLabel = showTimestamp
+        ? _replyTimestampLabel(controller, part.messageId)
+        : null;
+    final timestampSuffix = sentAtLabel != null ? ' · $sentAtLabel' : '';
     final definition = switch (status) {
       'sent' => (_LegacyIconKind.check, '消息已发送', muted),
       'replying' => (
         _LegacyIconKind.send,
-        customLabel.isEmpty ? '小机子正在回复' : customLabel,
+        (customLabel.isEmpty ? '小机子正在回复' : customLabel) + timestampSuffix,
         muted,
       ),
       'response_progress' => (
@@ -5312,6 +5455,12 @@ class _ToolProgressCapsule extends StatelessWidget {
       ('create_system_reminder', true) => '小机子正在写入系统提醒事项',
       ('update_home_widget', false) => '小机子准备更新小组件',
       ('update_home_widget', true) => '小机子正在更新桌面小组件',
+      ('read_our_home_status', false) => '小机子准备查看小家状态',
+      ('read_our_home_status', true) => '小机子正在查看小家状态',
+      ('search_our_home_log', false) => '小机子准备搜索小家历史日志',
+      ('search_our_home_log', true) => '小机子正在搜索小家历史日志',
+      ('our_home_pet_action', false) => '小机子准备让小螃蟹做点什么',
+      ('our_home_pet_action', true) => '小机子正在指挥小螃蟹',
       ('list_workspace_files', false) => '小机子准备检查工作区文件',
       ('list_workspace_files', true) => '小机子正在检查工作区文件',
       ('read_workspace_file', false) => '小机子准备读取工作区文件',
@@ -9754,7 +9903,7 @@ class _WorkspacesPageState extends State<_WorkspacesPage> {
     ];
     return effective.map((part) {
       return switch (part.type) {
-        'status' => _StatusCapsule(part: part),
+        'status' => _StatusCapsule(part: part, controller: controller),
         'tool' => _ToolCapsule(part: part),
         'thought' when (part.content ?? '').isNotEmpty => _ThoughtBlock(
           key: ValueKey(part.id),
@@ -11929,6 +12078,2293 @@ class _VoicesPageState extends State<_VoicesPage> {
       ],
     );
   }
+}
+
+/// The "我们的家" log list — a second-level page pushed from the shared
+/// top bar's 日志 icon (see `_AppShellState._openOurHomeLog`), reusing the
+/// same full-screen `_LegacyDetailHeader` pattern the file/diary detail
+/// views use rather than an inline collapsible section. This level shows
+/// one row per calendar day only (e.g. "2026/09/08") — tapping a day drills
+/// into [_openOurHomeLogDayDetail] (third level) for that day's full
+/// entries, matching the list→day-detail structure the user asked for
+/// (this is NOT a flat/grouped single list — a real third page).
+Future<void> _openOurHomeLogPage(BuildContext context, OurHomeState home) {
+  // Newest day first, newest entry first within each day. home.fullLog
+  // already carries both scripted-action lines and persisted @ta chat
+  // exchanges (see _askTaModel), so a day's detail naturally includes both.
+  final entries = home.fullLog.reversed.toList();
+  final groups = <(DateTime day, List<LogEntry> items)>[];
+  for (final entry in entries) {
+    final day = DateTime(entry.time.year, entry.time.month, entry.time.day);
+    if (groups.isNotEmpty && groups.last.$1 == day) {
+      groups.last.$2.add(entry);
+    } else {
+      groups.add((day, [entry]));
+    }
+  }
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    transitionDuration: Duration.zero,
+    pageBuilder: (dialogContext, _, _) => Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Column(
+          children: <Widget>[
+            _LegacyDetailHeader(
+              title: '历史日志',
+              onBack: () => Navigator.pop(dialogContext),
+              backTooltip: '返回',
+            ),
+            Expanded(
+              child: groups.isEmpty
+                  ? const Center(child: Text('还没有记录'))
+                  : ListView.builder(
+                      itemCount: groups.length,
+                      itemBuilder: (context, index) {
+                        final (day, items) = groups[index];
+                        return ListTile(
+                          title: Text(_formatLogDayHeader(day)),
+                          subtitle: Text('${items.length} 条记录'),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: () =>
+                              _openOurHomeLogDayDetail(context, day, items),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// One day's full log detail — third and final level, a plain list of
+/// every entry recorded that day (scripted actions and @ta chat exchanges
+/// alike), newest first. No further drill-down — each row just shows its
+/// "时间 类型·来源" line and the text underneath, per the user's explicit
+/// "不需要有动作详情，单纯列出来就行".
+Future<void> _openOurHomeLogDayDetail(
+  BuildContext context,
+  DateTime day,
+  List<LogEntry> entries,
+) {
+  return showGeneralDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    transitionDuration: Duration.zero,
+    pageBuilder: (dialogContext, _, _) => Material(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: SafeArea(
+        child: Column(
+          children: <Widget>[
+            _LegacyDetailHeader(
+              title: _formatLogDayHeader(day),
+              onBack: () => Navigator.pop(dialogContext),
+              backTooltip: '返回',
+            ),
+            Expanded(
+              child: entries.isEmpty
+                  ? const Center(child: Text('这天没有记录'))
+                  : ListView.builder(
+                      itemCount: entries.length,
+                      itemBuilder: (context, index) {
+                        final entry = entries[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 8,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(
+                                '${_formatLogEntryTime(entry.time)}  ${logTagLabel(entry)}',
+                                style: const TextStyle(
+                                  color: _accent,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                entry.text,
+                                style: const TextStyle(fontSize: 14, height: 1.4),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+/// "2026/09/08" (with a "今天"/"昨天" prefix for the two most recent days)
+/// — used both as a day-list row's title and the day-detail page's header.
+String _formatLogDayHeader(DateTime day) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final ymd =
+      '${day.year}/${day.month.toString().padLeft(2, '0')}/${day.day.toString().padLeft(2, '0')}';
+  final diff = today.difference(day).inDays;
+  if (diff == 0) return '今天 · $ymd';
+  if (diff == 1) return '昨天 · $ymd';
+  return ymd;
+}
+
+/// Just the time-of-day for one entry row — the date itself is already
+/// shown once in that day's header.
+String _formatLogEntryTime(DateTime t) =>
+    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}:${t.second.toString().padLeft(2, '0')}';
+
+/// One row in the merged "跟ta说说话" feed — either a chat bubble
+/// (`isChat: true`) or a demo-style plain action-log line.
+typedef _OurHomeFeedItem = ({DateTime time, bool isChat, String who, String text});
+
+class _OurHomePage extends StatefulWidget {
+  const _OurHomePage({required this.controller, super.key});
+
+  final AppController controller;
+
+  @override
+  State<_OurHomePage> createState() => _OurHomePageState();
+}
+
+class _OurHomePageState extends State<_OurHomePage>
+    with SingleTickerProviderStateMixin {
+  OurHomeState? _home;
+  String? _loadError;
+  Ticker? _ticker;
+  double _elapsed = 0;
+  Duration _lastTickElapsed = Duration.zero;
+  DateTime? _lastLongActivityCheck;
+  final math.Random _visualRandom = math.Random();
+
+  // Ambient wander position — visual-only, not persisted, purely decorative
+  // life while the pet has nothing else going on. Real activity (work /
+  // sleep / away) pins the pet to the desk / bed / door instead.
+  double _petX = 130;
+  double _petTargetX = 130;
+  String _petSub = 'idle'; // idle | walk
+  double _idleTimer = 3;
+
+  // Set while the pet is walking to the desk/door for a work or travel
+  // action that hasn't actually started yet — the actual state change
+  // (`performOurHomeAction`) is deferred until the walk arrives, mirroring
+  // the demo's `startWalk(...)`+`_afterWalk` sequence, so the pet visibly
+  // leaves the room instead of vanishing/appearing instantly.
+  String? _pendingArrivalAction;
+  // Whether [_pendingArrivalAction] was the pet's own idea (autonomous
+  // decision loop) rather than a user/model command — carried across the
+  // walk so [_commitAction] still knows which departure line to speak once
+  // it actually commits.
+  bool _pendingArrivalIsAutonomous = false;
+
+  // A one-off cosmetic/action emote currently playing (chat-triggered mood
+  // /hobby/festival pose, or a momentary eat/bath/drink/snack/cook action) —
+  // freezes ambient wander until it expires, same as the demo's
+  // `emoteFreeze`.
+  String? _activeEmoteKey;
+  double _emoteStartedAt = 0;
+  double _emoteDurationSeconds = 0;
+
+  // Per-visit state for the away scenes — rolled fresh whenever a new
+  // shop/adventure/outing trip starts (see _startAwayVisuals), since the
+  // scene functions themselves keep no state of their own.
+  double _awayStartElapsed = 0;
+  double _libraryTableX = 128;
+
+  void _startAwayVisuals() {
+    _awayStartElapsed = _elapsed;
+    _libraryTableX = libraryTables[_visualRandom.nextInt(libraryTables.length)];
+  }
+
+  static const Map<String, (String, double)> _actionEmote = {
+    'eat': ('et', 6),
+    'bath': ('sh', 6),
+    'drink': ('cf', 6),
+    'snack': ('ch', 5),
+    'cook': ('ck', 6),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    try {
+      // Shared with `AppController.ourHomeSimulation`, which keeps ticking
+      // this same state for the rest of the app session whenever this page
+      // isn't the visible one — see [dispose]'s matching `releaseFromPage`.
+      final home = await widget.controller.ourHomeSimulation.acquireForPage();
+      final activity = home.longActivity;
+      if (activity != null && activity.kind != 'sleep' && !home.isWorking) {
+        _startAwayVisuals();
+      } else if (activity == null && !home.isWorking) {
+        // Real-calendar festival auto-detection (春节/圣诞/情人节/...) — only
+        // on a fresh idle arrival, matching the demo's own page-load-only
+        // `checkFestivalToday()` call; never overrides sleep/work/away.
+        final festivalKey = home.checkFestivalReplay(firstOfDay: true);
+        if (festivalKey != null) _playFestivalEmote(home, festivalKey);
+      }
+      if (!mounted) return;
+      setState(() => _home = home);
+      _ticker = createTicker(_onTick)..start();
+      // Land on the latest message immediately on entering the page, rather
+      // than wherever the freshly-built ListView happens to start (top).
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_chatScrollController.hasClients) return;
+        _chatScrollController.jumpTo(
+          _chatScrollController.position.maxScrollExtent,
+        );
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _loadError = '$error');
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.ourHomeSimulation.releaseFromPage();
+    _ticker?.dispose();
+    _chatController.dispose();
+    _chatFocusNode.dispose();
+    _chatScrollController.dispose();
+    super.dispose();
+  }
+
+  void _onTick(Duration elapsed) {
+    final dt = (elapsed - _lastTickElapsed).inMicroseconds / 1e6;
+    _lastTickElapsed = elapsed;
+    _elapsed += dt;
+    if (_activeEmoteKey != null &&
+        _elapsed - _emoteStartedAt > _emoteDurationSeconds) {
+      _activeEmoteKey = null;
+    }
+    _updateAmbientWander(dt);
+    _checkLongActivity();
+    _checkLowMood();
+    if (mounted) setState(() {});
+  }
+
+  /// Speaks up on its own when mood is genuinely low — checked every frame
+  /// so it fires no matter which of the many `changeMood` call sites caused
+  /// the dip (poke, chat interrupt, autonomous economy loop, settlement...),
+  /// without needing to wire each one individually. [OurHomeState.
+  /// maybeLowMoodLine] already gates this to at most once every 3 real
+  /// minutes, so checking this often is harmless.
+  void _checkLowMood() {
+    final home = _home;
+    if (home == null) return;
+    final line = home.maybeLowMoodLine();
+    if (line != null) _addBubble('pet', line, actionType: LogActionType.auto);
+  }
+
+  void _updateAmbientWander(double dt) {
+    final home = _home;
+    if (home == null ||
+        home.isWorking ||
+        home.longActivity != null ||
+        _activeEmoteKey != null) {
+      _petSub = 'idle';
+      return;
+    }
+    if (_petSub == 'walk') {
+      final dir = _petTargetX > _petX ? 1 : -1;
+      _petX += dir * 26 * dt;
+      if ((_petTargetX - _petX).abs() < 2) {
+        _petX = _petTargetX;
+        _petSub = 'idle';
+        _idleTimer = 3 + _visualRandom.nextDouble() * 4;
+        final pending = _pendingArrivalAction;
+        if (pending != null) {
+          _pendingArrivalAction = null;
+          final wasAutonomous = _pendingArrivalIsAutonomous;
+          _pendingArrivalIsAutonomous = false;
+          unawaited(
+            _commitAction(home, pending, isAutonomous: wasAutonomous),
+          );
+        }
+      }
+    } else {
+      _idleTimer -= dt;
+      if (_idleTimer <= 0) {
+        _decideNextHomeAction(home);
+      }
+    }
+  }
+
+  int _workStreak = 0;
+  DateTime? _lastFestivalReplayAt;
+
+  /// Called whenever the pet has been idle at home long enough with nothing
+  /// else going on — ported from the demo's `decideNextHomeAction`. Runs
+  /// entirely with no user input: picks a weighted-random thing to do,
+  /// occasionally a festival replay first.
+  void _decideNextHomeAction(OurHomeState home) {
+    final now = DateTime.now();
+    final festivalCooldownOver =
+        _lastFestivalReplayAt == null ||
+        now.difference(_lastFestivalReplayAt!) > const Duration(minutes: 20);
+    if (festivalCooldownOver && _visualRandom.nextDouble() < 0.12) {
+      final key = home.checkFestivalReplay(firstOfDay: false);
+      if (key != null) {
+        _lastFestivalReplayAt = now;
+        _playFestivalEmote(home, key, skipMood: true);
+        _idleTimer = 3 + _visualRandom.nextDouble() * 4;
+        return;
+      }
+    }
+
+    final choice = pickAutonomousChoice(home, _workStreak, _visualRandom);
+    if (choice != 'work') _workStreak = 0;
+    switch (choice) {
+      case 'wander':
+        _petTargetX =
+            _OurHomePainter.wanderMin +
+            _visualRandom.nextDouble() *
+                (_OurHomePainter.wanderMax - _OurHomePainter.wanderMin);
+        _petSub = 'walk';
+      case 'hobby':
+        final pick =
+            autonomousHobbyPool[_visualRandom.nextInt(autonomousHobbyPool.length)];
+        home.fullLog.add(LogEntry(time: DateTime.now(), text: pick.$2));
+        unawaited(home.save());
+        _playEmote(pick.$1, 6 + _visualRandom.nextDouble() * 3);
+        _idleTimer = 3 + _visualRandom.nextDouble() * 4;
+      case 'work':
+        _workStreak++;
+        unawaited(_runAction('work', isAutonomous: true));
+      case 'meal':
+        final wantsCook = preferCookingForMeal(home, _visualRandom);
+        unawaited(
+          _runAction(wantsCook ? 'cook' : 'eat', isAutonomous: true),
+        );
+      default:
+        unawaited(_runAction(choice, isAutonomous: true));
+    }
+  }
+
+  /// Applies a festival emote's mood bonus (skipped on a replay — the
+  /// demo's rule: celebrate visually a few times a day, but only the first
+  /// trigger actually pays out mood) and plays it.
+  void _playFestivalEmote(OurHomeState home, String key, {bool skipMood = false}) {
+    final meta = ourHomeEmoteTriggers[key];
+    if (!skipMood && meta != null && meta.moodDelta != 0) {
+      home.changeMood(meta.moodDelta);
+    }
+    home.fullLog.add(
+      LogEntry(time: DateTime.now(), text: meta?.logText ?? '过节了'),
+    );
+    unawaited(home.save());
+    _playEmote(key, meta?.durationSeconds ?? 6);
+  }
+
+  void _checkLongActivity() {
+    final home = _home;
+    if (home == null) return;
+    final now = DateTime.now();
+    if (_lastLongActivityCheck != null &&
+        now.difference(_lastLongActivityCheck!) < const Duration(seconds: 1)) {
+      return;
+    }
+    _lastLongActivityCheck = now;
+    if (home.isWorking) {
+      final moodBefore = home.mood;
+      final summary = home.tickWork(now);
+      if (summary != null) {
+        home.fullLog.add(LogEntry(time: now, text: summary));
+        unawaited(home.save());
+        // Spoken bubble is a first-person sentiment line, not the mechanical
+        // log text (see [homecomingSpeech]) — sentiment comes from the net
+        // mood change this tick (may span more than one paid hour, or the
+        // mood-crash auto-stop, both captured by the before/after diff).
+        _addBubble(
+          'pet',
+          homecomingSpeech(home.mood - moodBefore, _visualRandom),
+          actionType: LogActionType.auto,
+        );
+        // The job just ended (completed or mood-stopped) — walk back in
+        // from the door instead of popping straight into idle, mirroring
+        // the demo's `finishWork`.
+        _startReturnWalk();
+      }
+      return;
+    }
+    final activity = home.longActivity;
+    if (activity != null && !now.isBefore(activity.endsAt)) {
+      final wasAway = activity.kind != 'sleep';
+      final result = home.resolvePendingLongActivity(now);
+      if (result != null) {
+        home.fullLog.add(LogEntry(time: now, text: result.summary));
+        unawaited(home.save());
+        // Sleep keeps its own already-natural line ("睡醒了，伸了个懒腰");
+        // a travel trip instead speaks a sentiment-based homecoming line
+        // rather than repeating the log's mechanical outcome text verbatim.
+        _addBubble(
+          'pet',
+          wasAway
+              ? homecomingSpeechFor(result, _visualRandom)
+              : result.summary,
+          actionType: LogActionType.auto,
+          persist: wasAway, // sleep's bubble is identical to the log line
+        );
+        // Sleep wakes up in place (matches the demo — no walk); a travel
+        // trip walks back in from the door once its real 10 minutes are up.
+        if (wasAway) _startReturnWalk();
+      }
+    }
+  }
+
+  final TextEditingController _chatController = TextEditingController();
+  final FocusNode _chatFocusNode = FocusNode();
+  final ScrollController _chatScrollController = ScrollController();
+  bool _taThinking = false;
+
+  /// Speaks a bubble in "跟ta说说话" — and, unless [persist] is false,
+  /// records it as its own row in `home.fullLog` (tagged [messageType]/
+  /// [actionType]/[source]) so it survives leaving/reopening the page, same
+  /// as any action-log line. [persist] should only be false when [text] is
+  /// identical to a mechanical log line already added for the very same
+  /// event a moment earlier (e.g. a spammy-poke's log line and its bubble
+  /// happen to be the same sentence) — don't add a second, redundant row
+  /// for that. `who: 'me'` always logs as bubble/chat/user regardless of
+  /// the passed tags (a bubble is always [LogMessageType.bubble] by
+  /// definition — this call is specifically for spoken content; a plain
+  /// mechanical fact with no bubble should go straight to
+  /// `home.fullLog.add` instead of through here, EXCEPT the couple of
+  /// narration-style "fail" reactions that pass `messageType: system`
+  /// explicitly so they don't visually read as the pet talking).
+  void _addBubble(
+    String who,
+    String text, {
+    LogMessageType messageType = LogMessageType.bubble,
+    LogActionType actionType = LogActionType.chat,
+    LogSource source = LogSource.pet,
+    bool persist = true,
+  }) {
+    final home = _home;
+    if (home != null && persist) {
+      home.fullLog.add(
+        LogEntry(
+          time: DateTime.now(),
+          text: text,
+          messageType: who == 'me' ? LogMessageType.bubble : messageType,
+          actionType: who == 'me' ? LogActionType.chat : actionType,
+          source: who == 'me' ? LogSource.user : source,
+        ),
+      );
+      unawaited(home.save());
+    }
+    if (!mounted) return;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_chatScrollController.hasClients) return;
+      _chatScrollController.animateTo(
+        _chatScrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    });
+  }
+
+  // Actions that walk the pet out the door before they actually start
+  // (ported from the demo's `startWalk(DOOR_X+6)` + `_afterWalk` sequence,
+  // extended to 'work' too now that a real job happens at a dedicated
+  // office scene rather than a desk inside the home room) — see
+  // [_runAction]/[_commitAction].
+  static const _walkToDoorActions = <String>{
+    'work',
+    'shop',
+    'adventure',
+    'library',
+    'street',
+    'mystery',
+    'escape',
+    'outing',
+  };
+
+  /// Runs one pet action through the shared [performOurHomeAction] dispatch
+  /// — used by both the quick-tap chips and the free-text chat box below, so
+  /// the two call paths (and the main-chat `our_home_pet_action` tool) never
+  /// drift out of sync with each other. Work/travel actions walk the pet to
+  /// the desk/door first and only actually start once it arrives (see
+  /// [_commitAction]) instead of starting instantly. [isAutonomous] should
+  /// only be true when the pet itself decided to do this (the idle-timer
+  /// loop) — never for a user chat command, quick-tap chip, or a model
+  /// (@ta / main-chat tool) instructing it — it changes which line the pet
+  /// speaks on departure, not what actually happens.
+  Future<void> _runAction(String action, {bool isAutonomous = false}) async {
+    final home = _home;
+    if (home == null) return;
+    if (_pendingArrivalAction != null && action != 'give_money') {
+      _addBubble('pet', '正在路上呢，等一下~');
+      return;
+    }
+    final busy = home.isWorking || home.longActivity != null;
+    if (!busy && _walkToDoorActions.contains(action)) {
+      setState(() {
+        _pendingArrivalAction = action;
+        _pendingArrivalIsAutonomous = isAutonomous;
+        _petTargetX = _OurHomePainter.doorX;
+        _petSub = 'walk';
+      });
+      return;
+    }
+    await _commitAction(home, action, isAutonomous: isAutonomous);
+  }
+
+  /// Actually applies [action] via [performOurHomeAction] — called either
+  /// immediately (for actions with no walk-in) or once a pending walk to the
+  /// desk/door has arrived (see [_runAction]). The action-log line
+  /// (`result.summary`) always stays the same mechanical description; the
+  /// spoken bubble differs when [isAutonomous] — the pet announcing its own
+  /// idea ("我想去冒险，等我给你带战利品回来") instead of acknowledging a
+  /// command ("好呀，我们出发吧!").
+  Future<void> _commitAction(
+    OurHomeState home,
+    String action, {
+    bool isAutonomous = false,
+  }) async {
+    final wasWorking = home.isWorking;
+    final result = await performOurHomeAction(home, action);
+    if (isAutonomous) {
+      // A self-decided action always gets a system fact row (nothing
+      // external caused it, hence source: system) — every non-autonomous
+      // call here instead originates from a typed chat command (no
+      // separate quick-tap-chip path exists), which per the user's own
+      // "指令本来就是对话形式，只需要气泡就好了" doesn't need a system
+      // twin — the bubble below is that command's only persisted record.
+      home.fullLog.add(
+        LogEntry(time: DateTime.now(), text: result.summary),
+      ); // defaults: system/auto/system
+    }
+    final pose = _actionEmote[action];
+    if (result.ok && pose != null) {
+      _playEmote(pose.$1, pose.$2);
+    }
+    if (result.ok &&
+        const {
+          'shop',
+          'adventure',
+          'library',
+          'street',
+          'mystery',
+          'escape',
+          'outing',
+        }.contains(action)) {
+      _startAwayVisuals();
+    }
+    if (action == 'come_home' && result.ok && wasWorking) {
+      // Manually interrupted a real job — walk back in from the door
+      // instead of popping straight into the room, mirroring the demo's
+      // `callBackHome` work branch.
+      _startReturnWalk();
+    }
+    if (mounted) setState(() {});
+    unawaited(home.save());
+    final speech = isAutonomous && result.ok
+        ? (autonomousDepartureSpeech[action] ?? result.summary)
+        : result.summary;
+    _addBubble(
+      'pet',
+      speech,
+      actionType: isAutonomous ? LogActionType.auto : LogActionType.chat,
+      // Autonomous: skip only if identical to the system row just added
+      // above. Chat-commanded: always persist — this bubble is the only
+      // record of the command (no system row was created for it at all).
+      persist: !isAutonomous || speech != result.summary,
+    );
+  }
+
+  /// Kicks off the walk-back-into-the-room animation after a work session
+  /// or a travel trip actually ends (state is already settled by the time
+  /// this is called — this only animates the visual reveal). Ported from
+  /// the demo's `finishWork`/`callBackHome` calling `startWalk(pickWanderX())`
+  /// after clearing the activity. Always from the door now — work happens
+  /// at the office scene, not a desk inside the room.
+  void _startReturnWalk() {
+    _petX = _OurHomePainter.doorX;
+    _petTargetX =
+        _OurHomePainter.wanderMin +
+        _visualRandom.nextDouble() *
+            (_OurHomePainter.wanderMax - _OurHomePainter.wanderMin);
+    _petSub = 'walk';
+  }
+
+  /// Starts a one-off pose animation — [seconds] later it reverts to
+  /// whatever ambient state (idle/work/sleep) makes sense on its own.
+  void _playEmote(String key, double seconds) {
+    if (!mounted) return;
+    setState(() {
+      _activeEmoteKey = key;
+      _emoteStartedAt = _elapsed;
+      _emoteDurationSeconds = seconds;
+    });
+  }
+
+  /// Plays a pure-cosmetic chat-triggered pose (mood/hobby/festival) —
+  /// applies its one-time mood delta, logs it, and shows the pet's reply.
+  /// Blocked while busy, same as the economy actions.
+  void _playCosmeticEmote(String key) {
+    final home = _home;
+    if (home == null) return;
+    final meta = ourHomeEmoteTriggers[key];
+    if (meta == null) return;
+    if (home.isWorking || home.longActivity != null) {
+      _addBubble('pet', '现在正忙着${describeOurHomeStatus(home)}，先等这次的事情结束吧');
+      return;
+    }
+    if (meta.moodDelta != 0) home.changeMood(meta.moodDelta);
+    home.fullLog.add(
+      LogEntry(
+        time: DateTime.now(),
+        text: meta.logText,
+        actionType: LogActionType.chat,
+        source: LogSource.user,
+      ),
+    );
+    unawaited(home.save());
+    _playEmote(key, meta.durationSeconds);
+    _addBubble('pet', meta.replyText);
+  }
+
+  void _submitChat(String text) {
+    final trimmed = text.trim();
+    _chatController.clear();
+    if (trimmed.isEmpty) return;
+    final home = _home;
+    if (home == null) return;
+    // Dismiss the keyboard right after sending so it doesn't sit there
+    // covering the room/chat feed until the user manually taps away.
+    _chatFocusNode.unfocus();
+    _addBubble('me', trimmed);
+    _pokesSinceChat = 0; // any chat message resets poke-spam tracking
+    if (trimmed.startsWith('@ta')) {
+      final message = trimmed.substring(3).trim();
+      unawaited(
+        _askTaModel(home, message.isEmpty ? '看看现在情况，自己决定要不要做点什么' : message),
+      );
+      return;
+    }
+    if (isShopIntentQuery(trimmed) && home.longActivity?.kind == 'shop') {
+      final intent = home.longActivity!.meta['shopIntent'] as String? ?? '东西';
+      _addBubble('pet', '我想买点$intent~');
+      return;
+    }
+    if (isOurHomeStatusQuery(trimmed)) {
+      _addBubble(
+        'pet',
+        describeOurHomeStatus(home, activeEmoteKey: _activeEmoteKey),
+      );
+      return;
+    }
+    final action = matchOurHomeAction(trimmed);
+    if (home.longActivity?.kind == 'sleep' && action != 'come_home') {
+      // Any message other than the explicit wake phrase during sleep is an
+      // interruption, exactly like poking — shares _interruptSleep.
+      final outcome = _interruptSleep(home, actionType: LogActionType.interrupt);
+      _addBubble(
+        'pet',
+        switch (outcome) {
+          InterruptOutcome.fail => '嘘…我在睡觉，小声点~',
+          InterruptOutcome.angry => '哼！好好的觉被吵醒了！',
+          InterruptOutcome.grudging => '唔…被吵醒了，不过没事~',
+        },
+        actionType: LogActionType.interrupt,
+      );
+      return;
+    }
+    if (action != null) {
+      _requestAction(action);
+      return;
+    }
+    final emoteKey = matchOurHomeEmoteKey(trimmed);
+    if (emoteKey != null) {
+      _requestCosmeticEmote(emoteKey);
+      return;
+    }
+    final costume = matchOurHomeCostumeCommand(trimmed);
+    if (costume != null) {
+      setState(() => home.costume = costume == 'clear' ? null : costume);
+      home.fullLog.add(
+        LogEntry(
+          time: DateTime.now(),
+          text: costume == 'clear' ? '摘下了装扮' : '换上了装扮',
+          actionType: LogActionType.chat,
+          source: LogSource.user,
+        ),
+      );
+      unawaited(home.save());
+      _addBubble('pet', costumeReplies[costume]!);
+      return;
+    }
+    _addBubble('pet', _unmatchedReply());
+  }
+
+  // A few different-category example commands, so the "listen wrong" reply
+  // doesn't say the exact same thing every time — also nudges toward the
+  // @ta model feature, which is the actual reason this fallback text
+  // exists in the first place (rather than the demo's random filler chit-
+  // chat, since a real chat command genuinely wasn't understood here).
+  static const _unmatchedSuggestionSets = <List<String>>[
+    ['去工作', '睡觉', '弹吉他'],
+    ['去工作', '去玩剧本杀', '浇花'],
+    ['睡觉', '去购物', '画画'],
+    ['吃饭', '去冒险', '听歌'],
+    ['洗澡', '去图书馆', '打游戏'],
+    ['去密室逃脱', '做饭', '拍照'],
+  ];
+
+  String _unmatchedReply() {
+    final set =
+        _unmatchedSuggestionSets[_visualRandom.nextInt(_unmatchedSuggestionSets.length)];
+    final quoted = set.map((s) => '"$s"').join('');
+    return '没听懂，可以试试$quoted，或者"@ta 我想……"';
+  }
+
+  static const _taSystemPrompt =
+      '你在帮用户和"我们的家"里的宠物螃蟹 Clawd 对话与互动。可以调用 read_our_home_status '
+      '查看它当前的状态（天气、金币、心情、背包、今天做过的事），也可以调用 our_home_pet_action '
+      '让它去执行一个具体动作（可选项见该工具的参数定义）。如果不需要调用任何工具就能回应，直接用'
+      '小螃蟹第一人称、简短口语化的语气回复；调用了动作工具之后，也用小螃蟹自己的口吻把结果说给用户'
+      '听，不要用"已完成"这种系统式的措辞。';
+
+  /// The "@ta"-triggered real model call, scoped to only
+  /// read_our_home_status/our_home_pet_action — this is the one path in the
+  /// whole page that actually spends tokens; everything else is local
+  /// keyword matching. Uses whatever model the "模型" button configured
+  /// (falls back to the main chat's own model if never set).
+  Future<void> _askTaModel(OurHomeState home, String message) async {
+    final controller = widget.controller;
+    final profile = controller.ourHomeProfile;
+    if (profile == null) {
+      _addBubble('pet', '（还没配置好模型，点右上角"模型"选一个吧）');
+      return;
+    }
+    if (_taThinking) return;
+    setState(() => _taThinking = true);
+    try {
+      final result = await controller.api.chatWithTools(
+        profile: profile,
+        model: controller.ourHomeModel,
+        messages: <ChatMessage>[
+          ChatMessage(
+            id: 'ourhome-ta-${DateTime.now().microsecondsSinceEpoch}',
+            conversationId: 'our-home-ta',
+            sequence: 1,
+            role: 'user',
+            content: message,
+            createdAt: DateTime.now().toUtc(),
+          ),
+        ],
+        systemPrompt: _taSystemPrompt,
+        tools: <Map<String, Object?>>[
+          for (final name in const [
+            'read_our_home_status',
+            'our_home_pet_action',
+          ])
+            ToolService.definitions
+                .firstWhere((definition) => definition.name == name)
+                .toApi(),
+        ],
+        executeTool: (callId, name, arguments) => controller.tools.execute(
+          ToolRequest(callId: callId, name: name, arguments: arguments),
+          approved: true,
+        ),
+        stream: false,
+      );
+      if (!mounted) return;
+      final reply = result.text.trim();
+      setState(() {}); // a tool call may have changed coins/mood/activity
+      // The user's turn is already persisted by _submitChat's own
+      // `_addBubble('me', trimmed)` right before this was called — no need
+      // to log it a second time here (was a literal duplicate before).
+      final spoken = reply.isEmpty ? '（没有说话）' : reply;
+      // Source is "小螃蟹" (pet), not "模型" — 来源=模型 is reserved for a
+      // *system* row recording that a model caused a state change (see
+      // tool_service.dart's _ourHomePetAction), not for what the pet says;
+      // "小螃蟹" doesn't distinguish scripted vs. real @ta-generated speech.
+      _addBubble('pet', spoken, actionType: LogActionType.chat);
+    } on Object catch (error) {
+      if (!mounted) return;
+      _addBubble('pet', '（调用模型失败：$error）');
+    } finally {
+      if (mounted) setState(() => _taThinking = false);
+    }
+  }
+
+  /// Returns the interrupt roll if [requestedKey] would interrupt a
+  /// currently-playing hobby emote (a different key, and the active one is
+  /// in [hobbyEmoteKeys]), else null (nothing to interrupt — proceed as
+  /// normal). Ported from the demo's `playActivityEmote`/`playNeedActivity`
+  /// shared guard.
+  InterruptOutcome? _hobbyInterruptCheck(String requestedKey) {
+    if (_activeEmoteKey != null &&
+        hobbyEmoteKeys.contains(_activeEmoteKey) &&
+        _activeEmoteKey != requestedKey) {
+      return rollInterrupt(_visualRandom);
+    }
+    return null;
+  }
+
+  /// Routes an economy-action chat/tap request through the hobby-interrupt
+  /// roll first if a hobby emote is currently playing.
+  void _requestAction(String action) {
+    final home = _home;
+    if (home == null) return;
+    if (action == 'come_home' &&
+        (home.isWorking ||
+            (home.longActivity != null &&
+                home.longActivity!.kind != 'sleep'))) {
+      unawaited(_recallFromAway(home));
+      return;
+    }
+    final outcome = _hobbyInterruptCheck(action);
+    if (outcome == InterruptOutcome.fail) {
+      _addBubble(
+        'pet',
+        '(没理你，还在忙自己的事)',
+        messageType: LogMessageType.system,
+        actionType: LogActionType.interrupt,
+        source: LogSource.user,
+      );
+      return;
+    }
+    if (outcome == InterruptOutcome.angry) {
+      home.changeMood(-8);
+      home.fullLog.add(
+        LogEntry(
+          time: DateTime.now(),
+          text: '爱好被指令打断，生气了',
+          actionType: LogActionType.interrupt,
+          source: LogSource.user,
+        ),
+      );
+      unawaited(home.save());
+      _playEmote('ag', 3);
+      if (mounted) setState(() {});
+      _addBubble(
+        'pet',
+        '哼！人家还没玩够呢！',
+        actionType: LogActionType.interrupt,
+      );
+      return;
+    }
+    if (outcome == InterruptOutcome.grudging) {
+      home.changeMood(-2);
+      unawaited(home.save());
+    }
+    unawaited(_runAction(action));
+  }
+
+  /// Same interrupt-aware routing as [_requestAction], for a cosmetic
+  /// mood/hobby/festival emote request instead of an economy action.
+  void _requestCosmeticEmote(String key) {
+    final home = _home;
+    if (home == null) return;
+    final outcome = _hobbyInterruptCheck(key);
+    if (outcome == InterruptOutcome.fail) {
+      _addBubble(
+        'pet',
+        '(没理你，还在忙自己的事)',
+        messageType: LogMessageType.system,
+        actionType: LogActionType.interrupt,
+        source: LogSource.user,
+      );
+      return;
+    }
+    if (outcome == InterruptOutcome.angry) {
+      home.changeMood(-8);
+      home.fullLog.add(
+        LogEntry(
+          time: DateTime.now(),
+          text: '爱好被指令打断，生气了',
+          actionType: LogActionType.interrupt,
+          source: LogSource.user,
+        ),
+      );
+      unawaited(home.save());
+      _playEmote('ag', 3);
+      if (mounted) setState(() {});
+      _addBubble(
+        'pet',
+        '哼！人家还没玩够呢！',
+        actionType: LogActionType.interrupt,
+      );
+      return;
+    }
+    if (outcome == InterruptOutcome.grudging) {
+      home.changeMood(-2);
+      unawaited(home.save());
+    }
+    _playCosmeticEmote(key);
+  }
+
+  /// Rolls and applies a sleep interruption (shared by poke and chat, exactly
+  /// like the demo's single `interruptSleep()` backs both call sites). A
+  /// 'fail' roll leaves the nap untouched; angry/grudging both wake the pet
+  /// early with no mood-restore bonus. [actionType] lets each caller record
+  /// *why* the pet was interrupted — [LogActionType.poke] if tapped,
+  /// [LogActionType.interrupt] if typed — while the "who caused it" answer
+  /// (source: user) is the same either way.
+  InterruptOutcome _interruptSleep(
+    OurHomeState home, {
+    required LogActionType actionType,
+  }) {
+    final outcome = rollInterrupt(_visualRandom);
+    if (outcome == InterruptOutcome.fail) return outcome;
+    home.interruptSleep();
+    if (outcome == InterruptOutcome.angry) {
+      home.changeMood(-8);
+      home.fullLog.add(
+        LogEntry(
+          time: DateTime.now(),
+          text: '睡觉被打断，生气了',
+          actionType: actionType,
+          source: LogSource.user,
+        ),
+      );
+      _playEmote('ag', 3);
+    } else {
+      home.changeMood(-2);
+      home.fullLog.add(
+        LogEntry(
+          time: DateTime.now(),
+          text: '被吵醒了，勉强没生气',
+          actionType: actionType,
+          source: LogSource.user,
+        ),
+      );
+      _playEmote(_visualRandom.nextDouble() < 0.5 ? 'hp' : 'vd', 3);
+    }
+    unawaited(home.save());
+    if (mounted) setState(() {});
+    return outcome;
+  }
+
+  /// Manual "回家"/"叫回来" while genuinely away (shop/adventure/outing) OR
+  /// actually working at the office — rolls the same fail/angry/grudging
+  /// shape used by every other interruptible activity (see [OurHomeState.
+  /// rollAwayRecallInterrupt]) instead of always instantly succeeding. An
+  /// angry outcome plays the angry reaction *at the away/office scene*
+  /// first and only walks back after a short beat, so the animation and
+  /// the trip actually ending are visibly sequenced, matching the "先放一
+  /// 个生气的动画，再放回家" ask.
+  Future<void> _recallFromAway(OurHomeState home) async {
+    final wasWorking = home.isWorking;
+    switch (home.rollAwayRecallInterrupt()) {
+      case InterruptOutcome.fail:
+        _addBubble(
+          'pet',
+          '还想再多待一会儿，不想回去~',
+          messageType: LogMessageType.system,
+          actionType: LogActionType.interrupt,
+          source: LogSource.user,
+        );
+      case InterruptOutcome.angry:
+        home.changeMood(-8);
+        home.fullLog.add(
+          LogEntry(
+            time: DateTime.now(),
+            text: '被强行叫回来，生气了',
+            actionType: LogActionType.interrupt,
+            source: LogSource.user,
+          ),
+        );
+        unawaited(home.save());
+        _playEmote('ag', 2.2);
+        _addBubble(
+          'pet',
+          '哼！人家还没玩够呢！',
+          actionType: LogActionType.interrupt,
+        );
+        if (mounted) setState(() {});
+        await Future<void>.delayed(const Duration(milliseconds: 1400));
+        if (!mounted) return;
+        _finishRecall(home, wasWorking: wasWorking, moodDelta: -8);
+      case InterruptOutcome.grudging:
+        home.changeMood(-2);
+        unawaited(home.save());
+        _addBubble(
+          'pet',
+          '唔…好吧，这就回去',
+          actionType: LogActionType.interrupt,
+        );
+        _finishRecall(home, wasWorking: wasWorking, moodDelta: -2);
+    }
+  }
+
+  /// Actually ends the work session / away trip and starts the walk-back —
+  /// shared by both the angry (delayed) and grudging (immediate)
+  /// successful-recall outcomes. [wasWorking] picks which settlement path
+  /// applies; [moodDelta] (already applied by the caller) just feeds
+  /// [homecomingSpeech]'s sentiment.
+  void _finishRecall(
+    OurHomeState home, {
+    required bool wasWorking,
+    required int moodDelta,
+  }) {
+    final summary = wasWorking
+        ? home.interruptWork()
+        : home.forceSettleAway()?.summary;
+    if (summary == null) return; // e.g. it finished naturally in the meantime
+    home.fullLog.add(
+      LogEntry(
+        time: DateTime.now(),
+        text: summary,
+        actionType: LogActionType.interrupt,
+        source: LogSource.user,
+      ),
+    );
+    unawaited(home.save());
+    _addBubble(
+      'pet',
+      homecomingSpeech(moodDelta, _visualRandom),
+      actionType: LogActionType.interrupt,
+    );
+    if (mounted) setState(() {});
+    _startReturnWalk();
+  }
+
+  static String _moodEmoji(int v) {
+    if (v >= 80) return '😄';
+    if (v >= 60) return '😊';
+    if (v >= 40) return '😐';
+    if (v >= 20) return '😔';
+    return '😢';
+  }
+
+  /// Converts the tap's local widget coordinates to the painter's 256x192
+  /// logical space using the same scale factor the painter itself applies,
+  /// then pokes the pet if the tap landed near it — reachable while idle,
+  /// mid-hobby-emote, asleep, working, or genuinely away (shop/adventure/
+  /// outing) — every busy state routes to its own reaction (see
+  /// [_pokePet]/[_pokePetAway]). `home.isWorking` implies
+  /// `longActivity?.kind == 'work'` for the whole session (see
+  /// `_persistWorkProgress`), so it falls into the same away-poke branch
+  /// below without needing its own special case.
+  void _handleCanvasTap(Offset localPosition, Size renderedSize) {
+    final home = _home;
+    if (home == null) return;
+    final scale = renderedSize.width / _OurHomePainter.logicalW;
+    if (scale <= 0) return;
+    final logicalX = localPosition.dx / scale;
+    final logicalY = localPosition.dy / scale;
+
+    final activity = home.longActivity;
+    if (activity != null && activity.kind != 'sleep') {
+      final anchor = _currentAwaySceneAnchor(home, activity);
+      if (anchor == null) return;
+      final withinX = (logicalX - anchor.x).abs() < 14;
+      final withinY = logicalY > anchor.y - 22 && logicalY < anchor.y + 4;
+      if (withinX && withinY) _pokePetAway();
+      return;
+    }
+
+    final sleeping = activity?.kind == 'sleep';
+    final hobbyActive =
+        _activeEmoteKey != null && hobbyEmoteKeys.contains(_activeEmoteKey);
+    if (_activeEmoteKey != null && !hobbyActive) {
+      return; // a non-hobby one-off (mood/festival) — leave it alone
+    }
+    final anchorX = sleeping ? _OurHomePainter.bedX : _petX;
+    final withinX = (logicalX - anchorX).abs() < 14;
+    final withinY =
+        logicalY > _OurHomePainter.feetY - 22 && logicalY < _OurHomePainter.feetY + 4;
+    if (withinX && withinY) _pokePet();
+  }
+
+  /// The away scene's current pet anchor (painter-logical x/y), computed by
+  /// actually invoking the same scene-draw function the painter itself uses
+  /// this frame — onto a throwaway canvas, purely to read back its returned
+  /// position — so tap hit-testing can never drift out of sync with what's
+  /// actually on screen. Returns null for 'sleep' (not an away scene) or an
+  /// unrecognized kind.
+  ({double x, double y})? _currentAwaySceneAnchor(
+    OurHomeState home,
+    LongActivity activity,
+  ) {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final scene = switch (activity.kind) {
+      'work' => drawOfficeScene(canvas, _elapsed),
+      'shop' => drawShopScene(canvas, _elapsed),
+      'adventure' => drawAdventureScene(canvas, _elapsed),
+      'outing' => switch (activity.meta['variant'] as String? ?? 'library') {
+        'mystery' => drawMysteryScene(
+          canvas,
+          _elapsed,
+          mysteryShowed: (activity.meta['mysteryShowed'] as num?)?.toInt() ?? 2,
+        ),
+        'escape' => drawEscapeScene(canvas, _elapsed),
+        'street' => drawStreetScene(canvas, _elapsed),
+        _ => drawLibraryScene(
+          canvas,
+          _elapsed,
+          awayStart: _awayStartElapsed,
+          tableX: _libraryTableX,
+        ),
+      },
+      _ => null,
+    };
+    recorder.endRecording(); // discard — only the returned x/y was wanted
+    return scene == null ? null : (x: scene.x, y: scene.y);
+  }
+
+  static const _awayPokeLines = <String>[
+    '（愣了一下，看了看你，然后继续忙自己的）',
+    '（歪着头顿了顿，好像没太明白，接着做自己的事）',
+    '（被戳得晃了一下，随即又扭头去忙了）',
+  ];
+
+  /// Poking the pet while it's genuinely away — the demo's own `pokePet()`
+  /// had no special case for this (it just fell through to the plain
+  /// happy/annoyed home reaction, since `pet.x`/`feetY` tracked the away
+  /// scene there too), but that reaction looks odd overlaid on a shop/
+  /// library/mystery backdrop, so this instead plays a brief startled pause
+  /// — still busy, just distracted for a moment. No mood change; this is
+  /// flavor, not a real interruption attempt (see [_recallFromAway] for
+  /// actually trying to end the trip early via "回家").
+  void _pokePetAway() {
+    _playEmote('jj', 1.6);
+    _addBubble(
+      'pet',
+      _awayPokeLines[_visualRandom.nextInt(_awayPokeLines.length)],
+      actionType: LogActionType.poke,
+    );
+  }
+
+  int _pokesSinceChat = 0;
+
+  /// Full poke mechanic ported from the demo's `pokePet()`: sleep and an
+  /// active hobby emote both go through the same interrupt roll as a chat
+  /// command would; a plain idle poke is a small happy mood bump unless
+  /// 4+ consecutive pokes with no intervening chat message roll "annoyed"
+  /// (35% chance past that point). Every poke's mechanical row is sourced
+  /// "用户" — the tap is what caused it, not the pet or the system.
+  void _pokePet() {
+    final home = _home;
+    if (home == null) return;
+    if (home.longActivity?.kind == 'sleep') {
+      final outcome = _interruptSleep(home, actionType: LogActionType.poke);
+      _addBubble(
+        'pet',
+        switch (outcome) {
+          InterruptOutcome.fail => '戳了戳，ta 没反应，还在睡',
+          InterruptOutcome.angry => '哼！好好的觉被吵醒了！',
+          InterruptOutcome.grudging => '唔…被吵醒了，不过没事~',
+        },
+        actionType: LogActionType.poke,
+      );
+      return;
+    }
+    _pokesSinceChat++;
+    final interrupting =
+        _activeEmoteKey != null && hobbyEmoteKeys.contains(_activeEmoteKey);
+    if (interrupting) {
+      switch (rollInterrupt(_visualRandom)) {
+        case InterruptOutcome.fail:
+          _addBubble(
+            'pet',
+            '戳了戳，ta 好像没在意，继续忙自己的',
+            messageType: LogMessageType.system,
+            actionType: LogActionType.poke,
+            source: LogSource.user,
+          );
+        case InterruptOutcome.angry:
+          home.changeMood(-8);
+          home.fullLog.add(
+            LogEntry(
+              time: DateTime.now(),
+              text: '爱好被戳打断，生气了',
+              actionType: LogActionType.poke,
+              source: LogSource.user,
+            ),
+          );
+          unawaited(home.save());
+          _playEmote('ag', 3);
+          if (mounted) setState(() {});
+          _addBubble('pet', '哼！人家还没玩够呢！', actionType: LogActionType.poke);
+        case InterruptOutcome.grudging:
+          home.changeMood(-2);
+          unawaited(home.save());
+          if (mounted) setState(() {});
+          _playEmote(_visualRandom.nextDouble() < 0.5 ? 'hp' : 'vd', 3);
+          _addBubble(
+            'pet',
+            '被戳打断了一下，勉强没生气',
+            messageType: LogMessageType.system,
+            actionType: LogActionType.poke,
+            source: LogSource.user,
+          );
+      }
+      return;
+    }
+    final spammy = _pokesSinceChat >= 4 && _visualRandom.nextDouble() < 0.35;
+    if (spammy) {
+      home.changeMood(-8);
+      home.fullLog.add(
+        LogEntry(
+          time: DateTime.now(),
+          text: '被戳得有点烦了',
+          actionType: LogActionType.poke,
+          source: LogSource.user,
+        ),
+      );
+      unawaited(home.save());
+      _playEmote('ag', 3);
+      if (mounted) setState(() {});
+      // Same text as the log line just above — don't persist a duplicate.
+      _addBubble('pet', '被戳得有点烦了', persist: false);
+      return;
+    }
+    home.changeMood(4);
+    home.fullLog.add(
+      LogEntry(
+        time: DateTime.now(),
+        text: '被戳了一下，开心地动了动',
+        actionType: LogActionType.poke,
+        source: LogSource.user,
+      ),
+    );
+    unawaited(home.save());
+    if (mounted) setState(() {});
+    _playEmote(_visualRandom.nextDouble() < 0.5 ? 'hp' : 'vd', 3);
+    _addBubble('pet', '嘿嘿~', actionType: LogActionType.poke);
+  }
+
+  /// Lets the user pick which already-configured model slot "我们的家"'s
+  /// own "@ta" mini-agent uses — mirrors the workspace model picker exactly
+  /// (same slot list, same fallback-to-main-chat-model behavior when unset).
+  Future<void> _openOurHomeModelPicker(BuildContext context) async {
+    final controller = widget.controller;
+    final value = await showModalBottomSheet<String>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+              child: Text('"我们的家"用哪个模型', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+            if (controller.modelSlots.isEmpty)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 4, 16, 16),
+                child: Text('还没有配置任何模型，先去设置里添加一个'),
+              ),
+            ...controller.modelSlots.map(
+              (slot) => ListTile(
+                title: Text('${slot['label'] ?? slot['apiName']}'),
+                subtitle: Text('${slot['apiName'] ?? ''}'),
+                trailing: controller.ourHomeModelSlot?['id'] == slot['id']
+                    ? const Icon(Icons.check_rounded)
+                    : null,
+                onTap: () => Navigator.pop(sheetContext, '${slot['id']}'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (value != null) {
+      await controller.saveSetting('ourHomeModelSlotId', value);
+    }
+  }
+
+  /// Combined "改名字 + 设置生日" dialog, opened from the 🎂 icon in the
+  /// shared top bar. Deliberately avoids `showDatePicker`/`CalendarDatePicker`
+  /// for the birthday field — this app never registers `flutter_localizations`
+  /// delegates, and that was the prime suspect for the "设置生日总是不成功"
+  /// report (no other screen in the app uses `showDatePicker`, so it was
+  /// untested territory); two plain dropdowns sidestep that dependency
+  /// entirely and are simpler for a month/day-only value anyway.
+  Future<void> _editProfile() async {
+    final home = _home;
+    if (home == null) return;
+    final nameController = TextEditingController(text: home.title);
+    int? month;
+    int? day;
+    if (home.birthday != null) {
+      final parts = home.birthday!.split('-');
+      if (parts.length == 2) {
+        month = int.tryParse(parts[0]);
+        day = int.tryParse(parts[1]);
+      }
+    }
+    final result = await showDialog<({String name, int? month, int? day})>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          final daysInMonth = month == null ? 31 : DateUtils.getDaysInMonth(DateTime.now().year, month!);
+          if (day != null && day! > daysInMonth) day = daysInMonth;
+          return AlertDialog(
+            title: const Text('改名字 / 设置生日'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: '名字'),
+                ),
+                const SizedBox(height: 16),
+                const Text('生日'),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        initialValue: month,
+                        hint: const Text('月'),
+                        items: [
+                          for (var m = 1; m <= 12; m++)
+                            DropdownMenuItem(value: m, child: Text('$m月')),
+                        ],
+                        onChanged: (value) =>
+                            setDialogState(() => month = value),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        initialValue: day,
+                        hint: const Text('日'),
+                        items: [
+                          for (var d = 1; d <= daysInMonth; d++)
+                            DropdownMenuItem(value: d, child: Text('$d日')),
+                        ],
+                        onChanged: (value) =>
+                            setDialogState(() => day = value),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, (
+                  name: nameController.text.trim(),
+                  month: month,
+                  day: day,
+                )),
+                child: const Text('保存'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    nameController.dispose();
+    if (result == null || !mounted) return;
+    setState(() {
+      home.title = result.name.isEmpty ? '我们的家' : result.name;
+      if (result.month != null && result.day != null) {
+        home.birthday =
+            '${result.month!.toString().padLeft(2, '0')}-${result.day!.toString().padLeft(2, '0')}';
+      }
+    });
+    unawaited(home.save());
+    // The shared top bar's title and the sidebar's nav entry both read
+    // this same `home.title` (via `controller.ourHomeSimulation.state`),
+    // but they live outside this page's own subtree, so a plain setState
+    // here doesn't reach them — nudge the app-wide controller to rebuild.
+    widget.controller.refreshShell();
+  }
+
+  /// Public entry points for the shared app-wide top bar (see `_WebTopBar`'s
+  /// `AppSection.ourHome` case in `_AppShellState`) — profile editing,
+  /// backpack and the log list all live in that shared header now, not
+  /// inside this page's own body.
+  void editProfileFromShell() => unawaited(_editProfile());
+  void openBackpackFromShell() => _openBackpack();
+  OurHomeState? get homeForShell => _home;
+
+  void _openBackpack() {
+    final home = _home;
+    if (home == null) return;
+    final byCat = <String, List<MapEntry<String, int>>>{};
+    for (final entry in home.inventory.entries) {
+      final item = home.data.shopItems
+          .where((it) => it.name == entry.key)
+          .firstOrNull;
+      byCat.putIfAbsent(item?.cat ?? '其他', () => []).add(entry);
+    }
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420, maxHeight: 560),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '背包',
+                        style: Theme.of(dialogContext).textTheme.titleMedium,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                Flexible(
+                  child: byCat.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Text('背包空空的，去采购点什么吧'),
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.only(right: 8, bottom: 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              for (final cat in byCat.keys) ...[
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                  child: Text(
+                                    cat,
+                                    style: Theme.of(
+                                      dialogContext,
+                                    ).textTheme.titleSmall,
+                                  ),
+                                ),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    for (final entry in byCat[cat]!)
+                                      Chip(
+                                        label: Text(
+                                          '${entry.key} × ${entry.value}',
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _formatLogTime(DateTime t) =>
+      '${t.month}/${t.day} '
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+  static const _slashCommands = <(String cmd, String desc, String? phrase)>[
+    ('/去购物', '出门采购，10分钟后回来', '去购物'),
+    ('/去工作', '随机接一份工作，10分钟后回来', '去工作'),
+    ('/去冒险', '装备上阵，10分钟后回来', '去冒险'),
+    ('/去图书馆', '找本书看，10分钟后回来', '去图书馆'),
+    ('/去逛街', '在街上走走逛逛，10分钟后回来', '去逛街'),
+    ('/去剧本杀', '拼一局剧本杀，10分钟后回来', '去剧本杀'),
+    ('/去密室', '挑战密室逃脱，10分钟后回来', '去密室'),
+    ('/睡觉', '睡上10分钟，期间别吵它', '睡觉'),
+    ('/回家', '把它从外面或工位叫回来', '回家'),
+    ('/在干嘛', '问问它现在在做什么', '在干嘛'),
+    ('/给钱', '一次性给500金币，每天限一次', null),
+  ];
+
+  void _chooseSlashCommand((String, String, String?) command) {
+    _chatController.clear();
+    final phrase = command.$3;
+    if (phrase == null) {
+      _chatFocusNode.unfocus();
+      unawaited(_runAction('give_money'));
+      return;
+    }
+    _submitChat(phrase);
+  }
+
+  static const _weatherLabels = <String, String>{
+    'sunny': '☀️ 晴',
+    'cloudy': '🌤 多云',
+    'overcast': '☁️ 阴',
+    'rain': '🌧 雨',
+    'storm': '⛈ 暴雨',
+  };
+
+  Widget _pixelBadge(String text, {bool wrap = false}) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+    decoration: BoxDecoration(
+      color: const Color(0xB3241B1B),
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Text(
+      text,
+      maxLines: wrap ? 2 : 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+        height: 1.25,
+      ),
+    ),
+  );
+
+  /// The "跟ta说说话" feed, sourced *directly* from the persisted
+  /// `home.fullLog` (chat exchanges included — see `_addBubble`) rather
+  /// than a separate session-only transcript, so it survives leaving and
+  /// reopening the page — capped to the most recent 100 rows total (chat
+  /// and actions combined, per the user's "最近动作+对话一共保留100条"
+  /// ask). The full uncapped history, grouped by calendar day, stays
+  /// reachable via the shared top bar's 历史日志 page, and the
+  /// `search_our_home_log` tool can fetch a specific day directly instead
+  /// of dumping everything. Already chronological (fullLog is
+  /// append-ordered) — no sort needed.
+  List<_OurHomeFeedItem> _buildOurHomeFeed(OurHomeState home) {
+    final log = home.fullLog.length > 100
+        ? home.fullLog.sublist(home.fullLog.length - 100)
+        : home.fullLog;
+    return [
+      for (final entry in log)
+        (
+          time: entry.time,
+          isChat: logRowIsBubble(entry),
+          who: entry.source == LogSource.user ? 'me' : 'pet',
+          text: entry.text,
+        ),
+    ];
+  }
+
+  Widget _buildChatPanel(BuildContext context, ThemeData theme, OurHomeState home) {
+    final feed = _buildOurHomeFeed(home);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.brightness == Brightness.dark
+            ? _darkSurface
+            : _lightSurfaceSoft,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 28,
+            child: Row(
+              children: [
+                Text('跟ta说说话', style: theme.textTheme.labelLarge),
+                const Spacer(),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: const Size(0, 28),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () => _openOurHomeModelPicker(context),
+                  child: const Text('模型'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: feed.isEmpty && !_taThinking
+                ? Center(
+                    child: Text(
+                      '还没有聊过天，在下面输入试试，或者 @ta 让配置的模型来跟它说话',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: theme.hintColor, fontSize: 13),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: _chatScrollController,
+                    itemCount: feed.length + (_taThinking ? 1 : 0),
+                    itemBuilder: (context, index) {
+                      if (index == feed.length) {
+                        return const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: 6),
+                            child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        );
+                      }
+                      final item = feed[index];
+                      if (!item.isChat) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _formatLogTime(item.time),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.hintColor,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  item.text,
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      final isMe = item.who == 'me';
+                      return Align(
+                        alignment: isMe
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width * 0.68,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isMe
+                                ? _accent.withValues(alpha: .18)
+                                : (theme.brightness == Brightness.dark
+                                      ? _darkSurface86OnBackground
+                                      : Colors.white),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            item.text,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: 8),
+          AnimatedBuilder(
+            animation: _chatController,
+            builder: (context, _) {
+              final text = _chatController.text;
+              final matches = text.startsWith('/')
+                  ? _slashCommands
+                        .where((c) => c.$1.startsWith(text))
+                        .toList()
+                  : const <(String, String, String?)>[];
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (matches.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      constraints: const BoxConstraints(maxHeight: 220),
+                      decoration: BoxDecoration(
+                        color: theme.brightness == Brightness.dark
+                            ? _darkSurface86OnBackground
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListView(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        children: [
+                          for (final command in matches)
+                            ListTile(
+                              dense: true,
+                              enabled:
+                                  command.$3 != null || home.canClaimDailyGift,
+                              title: Text(command.$1),
+                              subtitle: Text(
+                                command.$3 == null && !home.canClaimDailyGift
+                                    ? '今天已经给过钱了哦'
+                                    : command.$2,
+                              ),
+                              onTap: () => _chooseSlashCommand(command),
+                            ),
+                        ],
+                      ),
+                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _chatController,
+                          focusNode: _chatFocusNode,
+                          onChanged: (value) {
+                            // "/" opens the command menu — dismiss the
+                            // keyboard so the full menu is visible and the
+                            // user picks by tapping, matching how the slash
+                            // menu is meant to be used.
+                            if (value.startsWith('/')) _chatFocusNode.unfocus();
+                          },
+                          decoration: const InputDecoration(
+                            hintText: '跟ta说点什么，比如"去工作"、"@ta 帮我盯着它"',
+                            isDense: true,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.all(Radius.circular(12)),
+                            ),
+                          ),
+                          onSubmitted: _submitChat,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton.filledTonal(
+                        onPressed: () => _submitChat(_chatController.text),
+                        icon: const Icon(Icons.send_rounded),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loadError != null) {
+      return _EmptyState(
+        icon: Icons.error_outline_rounded,
+        title: '加载失败',
+        message: _loadError!,
+      );
+    }
+    final home = _home;
+    if (home == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final theme = Theme.of(context);
+    final busy = home.isWorking || home.longActivity != null;
+    final showingHobby =
+        !busy && _activeEmoteKey != null && hobbyLabels.containsKey(_activeEmoteKey);
+    return Column(
+      children: [
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Column(
+              children: [
+                AspectRatio(
+                  aspectRatio:
+                      _OurHomePainter.logicalW / _OurHomePainter.logicalH,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) => GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTapUp: (details) => _handleCanvasTap(
+                                details.localPosition,
+                                constraints.biggest,
+                              ),
+                              child: CustomPaint(
+                                painter: _OurHomePainter(
+                                  home: home,
+                                  elapsed: _elapsed,
+                                  petX: _petX,
+                                  petSub: _petSub,
+                                  activeEmoteKey: _activeEmoteKey,
+                                  emoteElapsed: _activeEmoteKey == null
+                                      ? 0
+                                      : _elapsed - _emoteStartedAt,
+                                  awayStartElapsed: _awayStartElapsed,
+                                  libraryTableX: _libraryTableX,
+                                ),
+                                size: Size.infinite,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 6,
+                          top: 6,
+                          child: Row(
+                            children: [
+                              _pixelBadge('💰${home.coins}'),
+                              const SizedBox(width: 4),
+                              _pixelBadge('${_moodEmoji(home.mood)}${home.mood}'),
+                            ],
+                          ),
+                        ),
+                        Positioned(
+                          right: 6,
+                          top: 6,
+                          child: _pixelBadge(
+                            _weatherLabels[home.weatherKey] ?? home.weatherKey,
+                          ),
+                        ),
+                        if (busy || showingHobby)
+                          Positioned(
+                            left: 6,
+                            right: 6,
+                            bottom: 6,
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 200),
+                                child: _pixelBadge(
+                                  describeOurHomeStatus(
+                                    home,
+                                    activeEmoteKey: _activeEmoteKey,
+                                  ),
+                                  wrap: true,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Expanded(child: _buildChatPanel(context, theme, home)),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+
+/// Pixel-art home room + Clawd rendering, ported directly from the
+/// standalone demo's canvas drawing code (scratchpad/our-home-demo.html:
+/// `drawRoom`/`drawClawd`) — same 256x192 logical coordinate space, scaled
+/// up to fill whatever size the widget is given. The 35 real emote poses
+/// (working/hobbies/moods/festivals) render via
+/// `our_home_emote_registry.dart`'s `paintOurHomeEmote`, using the same
+/// feet-anchored coordinate space as the plain idle crab.
+///
+/// Not yet ported: the away-scenes' bespoke art (shop/adventure/library/
+/// mystery/escape) — the pet is simply invisible while away, matching the
+/// demo's original fallback for a plain chat-requested trip.
+class _OurHomePainter extends CustomPainter {
+  _OurHomePainter({
+    required this.home,
+    required this.elapsed,
+    required this.petX,
+    required this.petSub,
+    this.activeEmoteKey,
+    this.emoteElapsed = 0,
+    this.awayStartElapsed = 0,
+    this.libraryTableX = 128,
+  });
+
+  final OurHomeState home;
+  final double elapsed;
+  final double petX;
+  final String petSub;
+
+  /// When the current away trip started, in the same clock as [elapsed] —
+  /// only meaningful for the library scene's short walk-then-sit intro.
+  final double awayStartElapsed;
+
+  /// The library table x-position chosen once per visit (from
+  /// [libraryTables]).
+  final double libraryTableX;
+
+  /// A one-off cosmetic/action pose currently playing (e.g. chat-triggered
+  /// "弹吉他", or a momentary "eat"/"bath" action) — takes priority over the
+  /// plain idle crab and the continuous work/sleep poses. [emoteElapsed] is
+  /// seconds since this specific pose started (not the page's own elapsed
+  /// clock), so its animation always starts from a clean loop origin.
+  final String? activeEmoteKey;
+  final double emoteElapsed;
+
+  static const double logicalW = 256;
+  static const double logicalH = 192;
+  static const double floorTop = 118;
+  static const double feetY = 176;
+  static const double bedX = 110;
+  // Where the pet walks to right before leaving on a work/travel trip —
+  // mirrors the demo's `DOOR_X+6` (door center is at x=24, see `doorFrame`
+  // below).
+  static const double doorX = 30;
+  static const double shelfX = 62;
+  static const List<double> rugX = [99, 169];
+  static const double wanderMin = 148;
+  static const double wanderMax = 186;
+
+  static const Map<String, Color> _pal = {
+    'wall': Color(0xFFE7B98F),
+    'wallShadow': Color(0xFFD8A679),
+    'floor': Color(0xFF8A5A3B),
+    'floorDark': Color(0xFF754A2F),
+    'floorLight': Color(0xFF9C6A45),
+    'baseboard': Color(0xFF5E3A24),
+    'rug': Color(0xFFC1495A),
+    'rugPattern': Color(0xFFE2717F),
+    'shelf': Color(0xFF6B4226),
+    'shelfDark': Color(0xFF4A2C1A),
+    'bed': Color(0xFFD7899A),
+    'bedSheet': Color(0xFFF4D9DE),
+    'windowSky': Color(0xFF241B3A),
+    'windowGlow': Color(0xFFFFCF7A),
+    'star': Color(0xFFFFF6D9),
+    'lampCord': Color(0xFF4A2C1A),
+    'lampGlow': Color(0xFFFFDCA0),
+    'deskWood': Color(0xFF9C6A45),
+    'deskDark': Color(0xFF754A2F),
+    'chair': Color(0xFF6B4226),
+    'monitor': Color(0xFF2B2438),
+    'screenOff': Color(0xFF463A55),
+    'screenOn': Color(0xFF8FD6FF),
+    'paper': Color(0xFFFBF3E3),
+    'paperLine': Color(0xFFD8C9AD),
+    'door': Color(0xFF5E3A24),
+    'doorFrame': Color(0xFF3D2416),
+    'doorKnob': Color(0xFFE0A458),
+    'crabBody': Color(0xFFDE886D),
+    'crabEye': Color(0xFF000000),
+  };
+
+  static const List<Color> _book = [
+    Color(0xFFE0A458),
+    Color(0xFF4D8B6B),
+    Color(0xFFC2544A),
+    Color(0xFF8C6BB1),
+    Color(0xFFE0A458),
+  ];
+
+  static void _rect(Canvas canvas, double x, double y, double w, double h, Color c) {
+    canvas.drawRect(
+      Rect.fromLTWH(x.roundToDouble(), y.roundToDouble(), w.roundToDouble(), h.roundToDouble()),
+      Paint()..color = c,
+    );
+  }
+
+  static void _glow(Canvas canvas, double cx, double cy, double radius, Color color) {
+    final paint = Paint()
+      ..shader = RadialGradient(
+        colors: [color, color.withValues(alpha: 0)],
+      ).createShader(Rect.fromCircle(center: Offset(cx, cy), radius: radius));
+    canvas.drawCircle(Offset(cx, cy), radius, paint);
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.save();
+    final scale = size.width / logicalW;
+    canvas.scale(scale, scale);
+    canvas.clipRect(const Rect.fromLTWH(0, 0, logicalW, logicalH));
+    if (!_drawAwayScene(canvas)) {
+      _drawRoom(canvas);
+      _drawClawd(canvas);
+    }
+    canvas.restore();
+  }
+
+  void _drawRoom(Canvas canvas) {
+    _rect(canvas, 0, 0, logicalW, floorTop, _pal['wall']!);
+    _rect(canvas, 0, floorTop - 6, logicalW, 6, _pal['wallShadow']!);
+    _rect(canvas, 0, floorTop, logicalW, logicalH - floorTop, _pal['floor']!);
+    for (double i = 0; i < logicalW; i += 16) {
+      _rect(canvas, i, floorTop, 1, logicalH - floorTop, _pal['floorDark']!);
+    }
+    _rect(canvas, 0, floorTop, logicalW, 2, _pal['floorLight']!);
+    _rect(canvas, 0, logicalH - 6, logicalW, 6, _pal['baseboard']!);
+
+    // rug
+    _rect(canvas, rugX[0], 164, rugX[1] - rugX[0], 18, _pal['rug']!);
+    _rect(canvas, rugX[0] + 8, 170, rugX[1] - rugX[0] - 16, 6, _pal['rugPattern']!);
+
+    // door
+    _rect(canvas, 2, 70, 32, floorTop - 70, _pal['doorFrame']!);
+    _rect(canvas, 7, 76, 22, floorTop - 82, _pal['door']!);
+    _rect(canvas, 24, 96, 2, 3, _pal['doorKnob']!);
+
+    // hanging lamp
+    _rect(canvas, 126, 0, 2, 20, _pal['lampCord']!);
+    _glow(
+      canvas,
+      127,
+      26,
+      14 + math.sin(elapsed * 1.6) * 1.5,
+      _pal['lampGlow']!.withValues(alpha: .35),
+    );
+    _rect(canvas, 121, 20, 12, 6, _pal['shelfDark']!);
+    _rect(canvas, 123, 24, 8, 4, _pal['lampGlow']!);
+
+    // window — real day/night from the device clock
+    final hour = DateTime.now().hour;
+    final isDay = hour >= 6 && hour < 19;
+    _rect(canvas, 150, 16, 56, 54, const Color(0xFF3D2416));
+    canvas.save();
+    canvas.clipRect(const Rect.fromLTWH(154, 20, 48, 46));
+    if (isDay) {
+      _rect(canvas, 154, 20, 48, 46, const Color(0xFF8FD3EE));
+      canvas.drawCircle(const Offset(185, 31), 6, Paint()..color = const Color(0xFFFFE58A));
+      for (final c in const [[158.0, 0.6], [172.0, 1.4], [163.0, 2.2]]) {
+        final cx = 154 + ((elapsed * 4 * c[1] + c[0] * 3) % 48);
+        _rect(canvas, cx, 34 + c[0] % 10, 10, 4, Colors.white);
+        _rect(canvas, cx + 3, 32 + c[0] % 10, 6, 3, Colors.white);
+      }
+    } else {
+      _rect(canvas, 154, 20, 48, 46, _pal['windowSky']!);
+      _glow(canvas, 178, 43, 24, _pal['windowGlow']!.withValues(alpha: .3));
+      _rect(canvas, 154, 20, 48, 3, _pal['windowGlow']!);
+      const stars = [[162.0, 26.0], [196.0, 32.0], [172.0, 40.0], [188.0, 50.0]];
+      for (var i = 0; i < stars.length; i++) {
+        final tw = 0.5 + math.sin(elapsed * 2 + i * 1.7) * 0.5;
+        final paint = Paint()..color = _pal['star']!.withValues(alpha: 0.5 + tw * 0.5);
+        canvas.drawRect(Rect.fromLTWH(stars[i][0], stars[i][1], 1, 1), paint);
+      }
+    }
+    switch (home.weatherKey) {
+      case 'overcast':
+        _rect(canvas, 154, 20, 48, 46, const Color(0x59303C46));
+      case 'rain':
+      case 'storm':
+        _rect(canvas, 154, 20, 48, 46, const Color(0x4D324B64));
+        final rainPaint = Paint()
+          ..color = const Color(0xA6C8DCFF)
+          ..strokeWidth = 1;
+        for (var ri = 0; ri < 8; ri++) {
+          final rx = 154 + ((ri * 11 + elapsed * 70) % 54);
+          final ry = 20 + ((ri * 7 + elapsed * 140) % 50);
+          canvas.drawLine(Offset(rx, ry), Offset(rx - 3, ry + 7), rainPaint);
+        }
+        if (home.weatherKey == 'storm' && math.sin(elapsed * 0.7) > 0.97) {
+          _rect(canvas, 154, 20, 48, 46, const Color(0x80FFFFFF));
+        }
+    }
+    canvas.restore();
+    _rect(canvas, 176, 20, 4, 46, const Color(0xFF3D2416));
+    _rect(canvas, 154, 40, 48, 4, const Color(0xFF3D2416));
+
+    // bookshelf
+    _rect(canvas, shelfX - 22, 72, 44, floorTop - 72, _pal['shelf']!);
+    _rect(canvas, shelfX - 18, 76, 36, floorTop - 80, _pal['shelfDark']!);
+    for (final y in const [84.0, 96.0, 108.0]) {
+      _rect(canvas, shelfX - 18, y, 36, 2, _pal['shelf']!);
+      var bx = shelfX - 16;
+      while (bx < shelfX + 14) {
+        _rect(canvas, bx, y - 7, 3, 7, _book[(bx ~/ 4) % _book.length]);
+        bx += 4;
+      }
+    }
+
+    // round cat bed
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(bedX, 160), width: 52, height: 32),
+      Paint()..color = _pal['bed']!,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: const Offset(bedX, 158), width: 36, height: 20),
+      Paint()..color = _pal['bedSheet']!,
+    );
+
+  }
+
+  void _drawClawd(Canvas canvas) {
+    final sleeping = home.longActivity?.kind == 'sleep';
+    final away = home.longActivity != null && !sleeping;
+
+    if (activeEmoteKey != null && ourHomeEmoteDraw.containsKey(activeEmoteKey)) {
+      paintOurHomeEmote(canvas, activeEmoteKey!, petX, feetY, emoteElapsed);
+      return;
+    }
+    if (sleeping) {
+      paintOurHomeEmote(canvas, 'sl', bedX, feetY, elapsed);
+      return;
+    }
+    if (away) return; // work/travel — handled by _drawAwayScene, see paint()
+
+    // Perspective shrink/grow as it nears the door on its way out, and grow
+    // back as it walks away from the door on its way back in — purely a
+    // function of x-distance from the door, so ordinary ambient wandering
+    // (which never gets anywhere near x=doorX) is unaffected and stays at
+    // scale 1.0; only the door-walk legs pass through the shrink zone.
+    _drawClawdBody(canvas, petX, feetY, scale: _doorPerspectiveScale(petX));
+  }
+
+  /// 0.45 right at the door, ramping linearly up to 1.0 by 70px away —
+  /// gives the "walking off into the distance"/"growing as it returns"
+  /// effect for the door-walk legs, per the user's explicit ask.
+  static double _doorPerspectiveScale(double x) {
+    const minScale = 0.45;
+    const fullSizeDistance = 70.0;
+    final dist = (x - doorX).abs();
+    final t = (dist / fullSizeDistance).clamp(0.0, 1.0);
+    return minScale + (1.0 - minScale) * t;
+  }
+
+  /// Draws the pet at an away-scene anchor — the currently-playing cosmetic
+  /// emote overlay if one is set (e.g. the angry reaction to a refused
+  /// manual recall, see `_recallFromAway`), otherwise the plain body.
+  void _drawAwaySceneBody(Canvas canvas, double x, double y, {bool armor = false}) {
+    if (activeEmoteKey != null && ourHomeEmoteDraw.containsKey(activeEmoteKey)) {
+      paintOurHomeEmote(canvas, activeEmoteKey!, x, y, emoteElapsed);
+      return;
+    }
+    _drawClawdBody(canvas, x, y, armor: armor);
+  }
+
+  /// Renders the away-scene background (office/shop/adventure/library/
+  /// street/mystery/escape) plus the pet inside it, when [home.longActivity]
+  /// is one of those kinds — work included, since a real job now happens at
+  /// a dedicated office scene, not at a desk inside the home room. Returns
+  /// false if nothing away is going on (caller should fall back to the
+  /// plain room).
+  bool _drawAwayScene(Canvas canvas) {
+    final activity = home.longActivity;
+    if (activity == null || activity.kind == 'sleep') return false;
+    switch (activity.kind) {
+      case 'work':
+        final scene = drawOfficeScene(canvas, elapsed);
+        // Default to the seated "写代码" pose (not the plain idle body) —
+        // still overridable by a real cosmetic reaction (e.g. a poke's
+        // interrupt-roll animation), same as every other away scene.
+        if (activeEmoteKey != null && ourHomeEmoteDraw.containsKey(activeEmoteKey)) {
+          paintOurHomeEmote(canvas, activeEmoteKey!, scene.x, scene.y, emoteElapsed);
+        } else {
+          paintOurHomeEmote(canvas, 'cd', scene.x, scene.y, elapsed);
+        }
+        scene.fg?.call(canvas);
+        return true;
+      case 'shop':
+        final scene = drawShopScene(canvas, elapsed);
+        _drawAwaySceneBody(canvas, scene.x, scene.y);
+        scene.fg?.call(canvas);
+        return true;
+      case 'adventure':
+        final scene = drawAdventureScene(canvas, elapsed);
+        _drawAwaySceneBody(canvas, scene.x, scene.y, armor: true);
+        scene.fg?.call(canvas);
+        return true;
+      case 'outing':
+        final variant = activity.meta['variant'] as String? ?? 'library';
+        final scene = switch (variant) {
+          'mystery' => drawMysteryScene(
+            canvas,
+            elapsed,
+            mysteryShowed: (activity.meta['mysteryShowed'] as num?)?.toInt() ?? 2,
+          ),
+          'escape' => drawEscapeScene(canvas, elapsed),
+          'street' => drawStreetScene(canvas, elapsed),
+          _ => drawLibraryScene(
+            canvas,
+            elapsed,
+            awayStart: awayStartElapsed,
+            tableX: libraryTableX,
+          ),
+        };
+        _drawClawdBody(canvas, scene.x, scene.y);
+        scene.fg?.call(canvas);
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  void _drawClawdBody(
+    Canvas canvas,
+    double feetX,
+    double drawFeetY, {
+    bool armor = false,
+    double scale = 1.0,
+  }) {
+    final bob = math.sin(elapsed * 2.4) * 1.1;
+    final legWave = petSub == 'walk' ? 1.4 : 0.5;
+    final blink = math.sin(elapsed * 0.7) > 0.985;
+
+    canvas.save();
+    canvas.translate(feetX, drawFeetY + bob);
+    // Scaling after the translate keeps the feet anchored at (feetX,
+    // drawFeetY) — only the body shrinks/grows around that fixed point.
+    if (scale != 1.0) canvas.scale(scale, scale);
+
+    _rect(canvas, -9, 0, 18, 2, const Color(0x59000000));
+
+    const legXs = [-9.0, -5.0, 3.0, 7.0];
+    for (var i = 0; i < legXs.length; i++) {
+      final wob = math.sin(elapsed * 3.2 + i * 1.6) * legWave;
+      _rect(canvas, legXs[i] + wob, -4, 2, 4, _pal['crabBody']!);
+    }
+
+    _rect(canvas, -11, -18, 22, 14, _pal['crabBody']!);
+    _rect(canvas, -15, -12, 4, 4, _pal['crabBody']!);
+    _rect(canvas, 11, -12, 4, 4, _pal['crabBody']!);
+
+    if (!blink) {
+      _rect(canvas, -7, -14, 2, 4, _pal['crabEye']!);
+      _rect(canvas, 5, -14, 2, 4, _pal['crabEye']!);
+    } else {
+      _rect(canvas, -7, -11, 2, 1, _pal['crabEye']!);
+      _rect(canvas, 5, -11, 2, 1, _pal['crabEye']!);
+    }
+
+    if (armor) {
+      _rect(canvas, -6, -20, 12, 3, const Color(0xFF8A8F99));
+      _rect(canvas, -5, -23, 10, 3, const Color(0xFF9AA0AB));
+      _rect(canvas, -19, -16, 6, 8, const Color(0xFF6B8CAF));
+      _rect(canvas, -18, -15, 4, 6, const Color(0xFF8AAACF));
+      _rect(canvas, 13, -20, 2, 10, const Color(0xFFCFD6DC));
+      _rect(canvas, 12, -11, 4, 2, const Color(0xFF8A8F99));
+    } else {
+      switch (home.costume) {
+        case 'hat':
+          _rect(canvas, -6, -20, 12, 3, const Color(0xFF4F7CA8));
+          _rect(canvas, -4, -23, 8, 3, const Color(0xFF5B8EC0));
+        case 'wizard':
+          _rect(canvas, -6, -19, 12, 2, const Color(0xFF3A1A5A));
+          _rect(canvas, -5, -21, 10, 2, const Color(0xFF4A2470));
+          _rect(canvas, -4, -23, 8, 2, const Color(0xFF4A2470));
+          _rect(canvas, -2, -25, 4, 2, const Color(0xFF4A2470));
+          _rect(canvas, -1, -27, 2, 2, const Color(0xFF4A2470));
+          _rect(canvas, -5, -19.5, 10, 1, const Color(0xFFFFC107));
+        case 'newyear':
+          _rect(canvas, -6, -20, 12, 3, const Color(0xFFCC0000));
+          _rect(canvas, -4, -23, 8, 3, const Color(0xFFD81B1B));
+          _rect(canvas, -1, -25, 3, 2, Colors.white);
+      }
+    }
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _OurHomePainter oldDelegate) => true;
 }
 
 class _VoiceLibraryRow extends StatelessWidget {
@@ -14768,7 +17204,16 @@ class _LegacyToolboxSettingsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tools = ToolService.orderedDefinitions
-        .where((tool) => tool.name != 'web_search' && tool.name != 'fetch_url')
+        .where(
+          (tool) =>
+              tool.name != 'web_search' &&
+              tool.name != 'fetch_url' &&
+              tool.name != 'get_time' &&
+              // Not a toggle — this tool is never available to the main
+              // chat at all (see enabledToolDefinitions), only to "我们的
+              // 家"'s own "@ta" mini-agent.
+              tool.name != 'our_home_pet_action',
+        )
         .toList();
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 0, 14, 0),
@@ -14806,6 +17251,29 @@ class _LegacyToolboxSettingsPanel extends StatelessWidget {
           ),
           const _LegacySettingsHint(
             '开启后，AI 可以通过 fetch_url 工具读取你提供的链接内容。',
+            legacyLines: 1,
+          ),
+          _LegacySettingsSwitchRow(
+            legacyIcon: _LegacyIconKind.clock,
+            label: '允许 AI 主动读取当前时间',
+            value: controller.settings['getTimeEnabled'] == true,
+            onChanged: (value) =>
+                unawaited(controller.saveSetting('getTimeEnabled', value)),
+          ),
+          const _LegacySettingsHint(
+            '开启后，AI 可以通过 get_time 工具主动读取当前日期、时间和时区。默认关闭，用下面的“常态化时间戳”被动感知时间即可。',
+            legacyLines: 2,
+          ),
+          _LegacySettingsSwitchRow(
+            legacyIcon: _LegacyIconKind.clock,
+            label: '常态化时间戳',
+            value: controller.settings['alwaysShowReplyTimestamp'] != false,
+            onChanged: (value) => unawaited(
+              controller.saveSetting('alwaysShowReplyTimestamp', value),
+            ),
+          ),
+          const _LegacySettingsHint(
+            '开启后，“小机子正在回复”的提示胶囊会显示当前时间戳，不需要 AI 主动调用工具。',
             legacyLines: 1,
           ),
           const SizedBox(height: 12),
@@ -16708,6 +19176,7 @@ String _sectionTitle(AppController controller) => switch (controller.section) {
   AppSection.files => 'Ta的文件',
   AppSection.voices => 'Ta的声音',
   AppSection.workspaces => 'Ta的工作室',
+  AppSection.ourHome => controller.ourHomeSimulation.state?.title ?? '我们的家',
   AppSection.settings => 'Settings',
 };
 

@@ -2,13 +2,33 @@ import 'package:claudechat/services/tool_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('tools are enabled by default except explicitly gated web tools', () {
-    expect(ToolPreferences.isEnabled(<String, Object?>{}, 'get_time'), isTrue);
-    expect(
-      ToolPreferences.isEnabled(<String, Object?>{}, 'web_search'),
-      isFalse,
-    );
-  });
+  test(
+    'tools are enabled by default except explicitly gated web/time tools',
+    () {
+      // get_time defaults off now that "常态化时间戳" gives passive
+      // time-awareness without a tool call — same opt-in shape as the web
+      // tools, via a dedicated settings key rather than the generic
+      // toolOverrides map.
+      expect(
+        ToolPreferences.isEnabled(<String, Object?>{}, 'get_time'),
+        isFalse,
+      );
+      expect(
+        ToolPreferences.isEnabled(<String, Object?>{
+          'getTimeEnabled': true,
+        }, 'get_time'),
+        isTrue,
+      );
+      expect(
+        ToolPreferences.isEnabled(<String, Object?>{}, 'web_search'),
+        isFalse,
+      );
+      expect(
+        ToolPreferences.isEnabled(<String, Object?>{}, 'search_memory'),
+        isTrue,
+      );
+    },
+  );
 
   test('legacy per-tool overrides survive an individual toggle', () {
     final updated = ToolPreferences.withEnabled(
