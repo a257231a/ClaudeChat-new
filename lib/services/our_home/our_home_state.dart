@@ -266,6 +266,15 @@ class OurHomeState {
     fullLog.removeWhere((entry) => entry.time.isBefore(cutoff));
   }
 
+  /// True right after a [save] call failed to actually persist (e.g. the
+  /// platform's storage write threw) — cleared again on the next successful
+  /// save. `unawaited(home.save())` is called from 20+ sites across the app
+  /// specifically so a slow write never blocks the UI, which means nothing
+  /// naturally surfaces a failure there — this flag plus the one-time log
+  /// row added below are the fallback so a failed save is at least visible
+  /// somewhere instead of silently vanishing.
+  bool lastSaveFailed = false;
+
   Future<void> save() async {
     _pruneFullLog();
     final json = <String, Object?>{
@@ -288,7 +297,21 @@ class OurHomeState {
       'birthday': birthday,
       'longActivity': longActivity?.toJson(),
     };
-    await _prefs.setString(_prefsKey, jsonEncode(json));
+    try {
+      await _prefs.setString(_prefsKey, jsonEncode(json));
+      lastSaveFailed = false;
+    } on Object catch (error) {
+      // Only log once per failure streak (not on every retry a few seconds
+      // later) so a sustained storage outage doesn't spam the log. The row
+      // itself only reaches disk once a later save succeeds — best effort,
+      // same as everything else in this class.
+      if (!lastSaveFailed) {
+        fullLog.add(
+          LogEntry(time: DateTime.now(), text: '存档失败了，最近的改动可能没保存上（$error）'),
+        );
+      }
+      lastSaveFailed = true;
+    }
   }
 
   // ---------- mood / coins ----------
