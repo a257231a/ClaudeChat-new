@@ -19,6 +19,7 @@ import 'services/content_repository.dart';
 import 'services/context_budget.dart';
 import 'services/diagnostics_service.dart';
 import 'services/legacy_import_service.dart';
+import 'services/our_home/our_home_presence_service.dart';
 import 'services/our_home/our_home_simulation_service.dart';
 import 'services/platform_service.dart';
 import 'services/portable_data_service.dart';
@@ -254,7 +255,8 @@ class AppController extends ChangeNotifier {
     required this.voice,
     required this.diagnostics,
     this.portableData,
-  }) : ourHomeSimulation = OurHomeSimulationService();
+  }) : ourHomeSimulation = OurHomeSimulationService(),
+       ourHomePresence = OurHomePresenceService();
 
   final AppPaths paths;
   final AppDatabase database;
@@ -274,6 +276,10 @@ class AppController extends ChangeNotifier {
   /// settlement) for the whole app session — not just while that section is
   /// the visible one. See [OurHomeSimulationService].
   final OurHomeSimulationService ourHomeSimulation;
+  /// Tracks whether the user has had the app itself closed for a while,
+  /// entirely separate from the pet's own simulation above. See
+  /// [OurHomePresenceService].
+  final OurHomePresenceService ourHomePresence;
 
   Map<String, Object?> settings = <String, Object?>{};
   List<ApiProfile> profiles = <ApiProfile>[];
@@ -574,6 +580,16 @@ class AppController extends ChangeNotifier {
     await controller.tools.cleanStaleTrivialMemories();
     await controller.legacy.repairLegacyToolParts();
     await controller.reload();
+    final profileName = '${controller.settings['profileName'] ?? ''}'.trim();
+    final accountName = profileName.isEmpty ? '用户' : profileName;
+    controller.ourHomeSimulation.onBeforeColdStartLoad = (home) =>
+        controller.ourHomePresence.recordDepartureIfAway(
+          home,
+          accountName: accountName,
+        );
+    controller.ourHomeSimulation.onAfterColdStartLoad = (home) => controller
+        .ourHomePresence
+        .recordArrivalIfWasAway(home, accountName: accountName);
     unawaited(controller.ourHomeSimulation.start());
     final initialPayload = platform.initialNotificationPayload;
     if (initialPayload != null && initialPayload.isNotEmpty) {

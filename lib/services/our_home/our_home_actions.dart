@@ -9,9 +9,18 @@ export 'our_home_state.dart' show InterruptOutcome, rollInterrupt;
 /// the "我们的家" page's own chat box and the main-chat `our_home_pet_action`
 /// tool so both call paths produce identical behavior and wording.
 class OurHomeActionResult {
-  const OurHomeActionResult({required this.summary, this.ok = true});
+  const OurHomeActionResult({required this.summary, this.autoSummary, this.ok = true});
 
   final String summary;
+
+  /// The text to log as the plain system/fact row instead of [summary]
+  /// when this outcome wasn't actually a response to being told to do
+  /// something (an autonomous pick, or the headless background
+  /// simulation) — null means [summary] already reads fine either way.
+  /// [summary] itself is still the only text ever spoken as the pet's own
+  /// command-acknowledgment bubble, which by definition only happens when
+  /// a human or a model really did issue the action.
+  final String? autoSummary;
   final bool ok;
 }
 
@@ -156,7 +165,10 @@ Future<OurHomeActionResult> performOurHomeAction(
         outingVariant: variant,
         mysteryShowed: variant == 'mystery' ? home.rollMysteryShowed() : null,
       );
-      return const OurHomeActionResult(summary: '好呀,我们出发吧!');
+      return const OurHomeActionResult(
+        summary: '好呀,我们出发吧!',
+        autoSummary: '背上包，出门逛逛去了',
+      );
     case 'give_money':
       return home.claimDailyGift()
           ? OurHomeActionResult(summary: '哇,谢谢你给我${OurHomeState.dailyGiftAmount}金币!')
@@ -358,6 +370,44 @@ const Map<String, String> autonomousDepartureSpeech = <String, String>{
   'snack': '我去吃点零食',
   'cook': '我去下厨做点吃的',
 };
+
+/// A spoken line for when the whole app was actually closed for a while and
+/// has just been cold-started again — distinct from [homecomingSpeech]
+/// (which reacts to *the pet* coming home from an activity): this one
+/// reacts to *the person* having been gone. See
+/// `OurHomeSimulationService._load`.
+const _departureSpeechLines = <String>[
+  '这就走啦？',
+  '早点回来找我玩呀',
+  '我会想你的，路上小心',
+  '嗯…那我自己在家待会儿',
+  '走之前抱一个再走嘛',
+  '记得想着我哦',
+];
+
+const _arrivalSpeechLines = <String>[
+  '你终于回来啦！',
+  '想死我了，你都去做什么了？@ta 和我说说呗',
+  '我一直在等你呢',
+  '欢迎回家~',
+  '可算把你盼回来了',
+  '路上顺利吗？快过来陪陪我',
+];
+
+String departureSpeech(math.Random random) =>
+    _departureSpeechLines[random.nextInt(_departureSpeechLines.length)];
+
+String arrivalSpeech(math.Random random) =>
+    _arrivalSpeechLines[random.nextInt(_arrivalSpeechLines.length)];
+
+/// The plain-fact system rows bracketing a real app close/reopen — "X 暂离了
+/// Y" / "X 回到了 Y", where X is the user's account name and Y is the 我们的
+/// 家 page's own (editable) title.
+String awayDepartureNote(String personName, String homeTitle) =>
+    '$personName暂离了$homeTitle';
+
+String awayArrivalNote(String personName, String homeTitle) =>
+    '$personName回到了$homeTitle';
 
 /// Keyword-matches free-form chat text to one of [ourHomeActionKeys] —
 /// mirrors the standalone demo's `craftReply` keyword matching, kept

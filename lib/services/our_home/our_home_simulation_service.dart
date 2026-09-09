@@ -42,6 +42,18 @@ class OurHomeSimulationService {
 
   static const _tickInterval = Duration(seconds: 5);
 
+  /// Optional extension points around the one-time cold-start load — pure
+  /// insertion seams for unrelated concerns that need to react to "the app
+  /// just cold-started" (e.g. `OurHomePresenceService`'s away-time
+  /// narration) without this service knowing anything about them.
+  /// [onBeforeColdStartLoad] runs right after state is restored from disk,
+  /// before anything (including pending-activity settlement) is appended
+  /// to its log this process; [onAfterColdStartLoad] runs last, once this
+  /// service is done with its own cold-start bookkeeping — wired up by
+  /// `AppController.bootstrap()`.
+  Future<void> Function(OurHomeState home)? onBeforeColdStartLoad;
+  Future<void> Function(OurHomeState home)? onAfterColdStartLoad;
+
   /// The shared, always-up-to-date state once loaded — null until [start]
   /// or [acquireForPage] has completed at least once.
   OurHomeState? get state => _state;
@@ -55,11 +67,13 @@ class OurHomeSimulationService {
   Future<OurHomeState> _load() async {
     final data = await OurHomeEconomyData.load();
     final home = await OurHomeState.load(data);
+    if (onBeforeColdStartLoad != null) await onBeforeColdStartLoad!(home);
     final settled = home.resolvePendingLongActivity();
     if (settled != null) {
       home.fullLog.add(LogEntry(time: DateTime.now(), text: settled.summary));
-      await home.save();
     }
+    if (onAfterColdStartLoad != null) await onAfterColdStartLoad!(home);
+    await home.save();
     _state = home;
     return home;
   }
@@ -143,8 +157,14 @@ class OurHomeSimulationService {
         home.fullLog.add(LogEntry(time: now, text: result.summary));
         await home.save();
       default:
+        // choice is always autonomous here (headless — no chat command
+        // exists in this loop), so a self-directed pick's plain `summary`
+        // can misread as a command acknowledgment (e.g. 'outing''s
+        // "好呀，我们出发吧!") — log the neutral fact instead when one exists.
         final result = await performOurHomeAction(home, choice);
-        home.fullLog.add(LogEntry(time: now, text: result.summary));
+        home.fullLog.add(
+          LogEntry(time: now, text: result.autoSummary ?? result.summary),
+        );
         await home.save();
     }
   }

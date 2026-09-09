@@ -145,7 +145,7 @@ class ClaudeChatApp extends StatefulWidget {
   State<ClaudeChatApp> createState() => _ClaudeChatAppState();
 }
 
-class _ClaudeChatAppState extends State<ClaudeChatApp> {
+class _ClaudeChatAppState extends State<ClaudeChatApp> with WidgetsBindingObserver {
   late bool showingSplash;
 
   AppController get controller => widget.controller;
@@ -153,11 +153,29 @@ class _ClaudeChatAppState extends State<ClaudeChatApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     showingSplash = !widget.skipSplash;
     if (!showingSplash) return;
     Future<void>.delayed(const Duration(milliseconds: 900), () {
       if (mounted) setState(() => showingSplash = false);
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Best-effort "the user is leaving" snapshot for 我们的家's away-narration
+  // (see OurHomePresenceService) — `paused` is the point Flutter reliably
+  // reports right before backgrounding, ahead of any eventual process
+  // suspension/kill where no more code could run at all.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      unawaited(controller.ourHomePresence.touch());
+    }
   }
 
   @override
@@ -12625,11 +12643,13 @@ class _OurHomePageState extends State<_OurHomePage>
 
   /// Actually applies [action] via [performOurHomeAction] — called either
   /// immediately (for actions with no walk-in) or once a pending walk to the
-  /// desk/door has arrived (see [_runAction]). The action-log line
-  /// (`result.summary`) always stays the same mechanical description; the
-  /// spoken bubble differs when [isAutonomous] — the pet announcing its own
-  /// idea ("我想去冒险，等我给你带战利品回来") instead of acknowledging a
-  /// command ("好呀，我们出发吧!").
+  /// desk/door has arrived (see [_runAction]). The action-log line uses
+  /// `result.autoSummary ?? result.summary` when [isAutonomous] (a neutral
+  /// fact — some actions' plain `summary` reads as a command
+  /// acknowledgment, e.g. "好呀，我们出发吧!", which never actually happened
+  /// here); the spoken bubble differs too — the pet announcing its own idea
+  /// ("我想去冒险，等我给你带战利品回来") instead of that same
+  /// acknowledgment.
   Future<void> _commitAction(
     OurHomeState home,
     String action, {
@@ -12645,7 +12665,7 @@ class _OurHomePageState extends State<_OurHomePage>
       // "指令本来就是对话形式，只需要气泡就好了" doesn't need a system
       // twin — the bubble below is that command's only persisted record.
       home.fullLog.add(
-        LogEntry(time: DateTime.now(), text: result.summary),
+        LogEntry(time: DateTime.now(), text: result.autoSummary ?? result.summary),
       ); // defaults: system/auto/system
     }
     final pose = _actionEmote[action];
