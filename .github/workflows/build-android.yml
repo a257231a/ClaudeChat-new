@@ -37,7 +37,8 @@ jobs:
             -Dorg.gradle.internal.repository.max.retries=5
             -Dorg.gradle.internal.repository.initial.backoff=500
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload APK 打包产物
+        uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: ClaudeChat-DEBUG-APK
+          path: build/app/outputs/flutter-apk/*.apk
